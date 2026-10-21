@@ -734,15 +734,15 @@ tr.group .gc { color: var(--faint); font-weight: 400; font-size: 13px; }
 .wkgrid i { height: 8px; border-radius: 3px; background: var(--hover); transition: background 160ms; }
 .wkgrid i.on { background: linear-gradient(135deg, #2f8cf0, #6e5ce6); }
 
-.gen-settings { display: grid; gap: 16px; }
-.set-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.gen-settings { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.set-row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
 .set-card { border: 1px solid var(--border); border-radius: 14px; background: var(--bg); box-shadow: var(--shadow-card); padding: 18px 20px; }
 .sc-h { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
 .sc-h .chip-i { width: 42px; height: 42px; border-radius: 12px; }
 .sc-t { font-weight: 650; font-size: 16px; }
 .sc-d { color: var(--muted); font-size: 13.5px; }
 
-.day-pills { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+.day-pills { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
 .day-pill {
   height: 50px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--bg); cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
@@ -869,7 +869,7 @@ tr.group td .gname { font-size: 15.5px; }
 @media (max-width: 1200px) {
   .hero { flex-direction: column; align-items: stretch; }
   .hero .week-card { width: auto; }
-  .set-row2 { grid-template-columns: 1fr; }
+  .set-row2 { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ------------------------------------------------------------ Tablet and phone layouts */
@@ -901,4 +901,40 @@ tr.group td .gname { font-size: 15.5px; }
   .db-head, .toolbar { padding-left: 16px; padding-right: 16px; }
   .db-scroll { padding: 0 16px 16px; }
   .hero { padding: 22px 18px; }
+  .day-pills { gap: 5px; }
+
+  /* Top bar: keep the page name on one line; the idle "Generated…" note gives way. */
+  .crumbs { overflow: hidden; }
+  .crumb.current { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .status-pill { flex: none; white-space: nowrap; }
+  .status-pill:not(.busy) { display: none; }
+
+  /* Full-height pages scroll as a whole; the table or week below the header gets a full screen. */
+  .page.fill.active { overflow-y: auto; }
+  .db-body, .tt-body { flex: none; height: 100%; }
+
+  /* The row editor covers the table instead of squeezing beside it. */
+  .peek { left: 0; width: auto; max-width: none; }
+  .db-body.has-peek .db-scroll { padding-right: 16px; }
+  .peek-body { padding: 10px 16px 20px; }
+  .peek .prop-name { width: 112px; }
+  .peek-foot { padding: 10px 16px 12px; }
+
+  /* Toolbars wrap instead of pushing buttons off-screen; search gets its own line. */
+  .toolbar { flex-wrap: wrap; row-gap: 6px; padding-top: 6px; padding-bottom: 6px; }
+  .toolbar .search { flex: 1 1 100%; order: 10; }
+  .search input { width: 100%; min-width: 0; }
+
+  /* Timetables: class/teacher picker on top, the week below at full width. */
+  .tt-body { flex-direction: column; }
+  .tt-list {
+    width: auto; max-height: 32vh; flex: none; box-sizing: border-box;
+    border-right: 0; border-bottom: 1px solid var(--border); padding: 8px 16px;
+  }
+  .tt-view { flex: 1; padding: 16px; }
+  .tt-head h2 { font-size: 22px; }
+
+  /* Settings: description above its control. */
+  .setting { flex-wrap: wrap; gap: 10px 16px; }
+  .setting .st { flex-basis: 100%; }
 }
