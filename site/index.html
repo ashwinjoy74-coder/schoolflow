@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SchoolFlow · School timetables, solved</title>
+<meta name="description" content="SchoolFlow turns a list of who teaches what into clash-free class and teacher timetables in seconds, with an Excel workbook you can print and share.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+:root {
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+  --bg: #ffffff; --bg-2: #f8f8f7; --bg-3: #f1f1ef;
+  --text: #37352f; --text-2: #5f5e5b; --muted: #787774; --faint: #a5a49f;
+  --border: rgba(55,53,47,.09); --border-strong: rgba(55,53,47,.16);
+  --accent: #2383e2; --accent-hover: #0d72d4; --accent-soft: rgba(35,131,226,.10); --accent-text: #1f6fc4;
+  --ok: #448361;
+  --shadow: 0 0 0 1px rgba(15,15,15,.05), 0 3px 6px rgba(15,15,15,.06), 0 18px 40px rgba(15,15,15,.10);
+  --blue-bg:#e7f3f8; --blue-fg:#183347; --green-bg:#edf3ec; --green-fg:#1c3829; --orange-bg:#fbecdd; --orange-fg:#49290e;
+  --purple-bg:#f6f3f9; --purple-fg:#412454; --pink-bg:#faf1f5; --pink-fg:#4c2337; --yellow-bg:#fbf3db; --yellow-fg:#402c1b;
+  --brown-bg:#f4eeee; --brown-fg:#442a1e; --red-bg:#fdebec; --red-fg:#5d1715; --gray-bg:#f1f1ef; --gray-fg:#4b4a46;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #191919; --bg-2: #202020; --bg-3: #252525;
+    --text: rgba(255,255,255,.86); --text-2: rgba(255,255,255,.72); --muted: rgba(255,255,255,.52); --faint: rgba(255,255,255,.34);
+    --border: rgba(255,255,255,.08); --border-strong: rgba(255,255,255,.14);
+    --accent: #2e8ae6; --accent-hover: #4a9bef; --accent-soft: rgba(46,138,230,.18); --accent-text: #6cb0f5; --ok: #6fb38a;
+    --shadow: 0 0 0 1px rgba(255,255,255,.07), 0 18px 40px rgba(0,0,0,.45);
+    --blue-bg:#1f2b33; --blue-fg:#a9cfe6; --green-bg:#1f2a23; --green-fg:#a8d1b4; --orange-bg:#33261c; --orange-fg:#f0c39b;
+    --purple-bg:#2a2330; --purple-fg:#d3bde3; --pink-bg:#30222a; --pink-fg:#eab8cf; --yellow-bg:#302a1b; --yellow-fg:#ecd59c;
+    --brown-bg:#2e2724; --brown-fg:#e6cfc3; --red-bg:#33201f; --red-fg:#f2b0aa; --gray-bg:#252525; --gray-fg:rgba(255,255,255,.8);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+section[id] { scroll-margin-top: 72px; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 var(--font); -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+/* Nav */
+.nav { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+.nav .wrap { display: flex; align-items: center; gap: 28px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; text-decoration: none; letter-spacing: -.01em; }
+.brand img { width: 26px; height: 26px; }
+.nav .links { display: flex; gap: 22px; margin-left: auto; font-size: 14.5px; }
+.nav .links a { text-decoration: none; color: var(--text-2); }
+.nav .links a:hover { color: var(--text); }
+.btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; padding: 10px 18px; font: 600 15px var(--font); text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: background .15s, border-color .15s, transform .15s; }
+.btn.primary { background: var(--accent); color: #fff; }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn.secondary { border-color: var(--border-strong); color: var(--text); background: var(--bg); }
+.btn.secondary:hover { background: var(--bg-2); }
+.btn.sm { padding: 7px 14px; font-size: 14px; }
+.btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Hero */
+.hero { padding: 84px 0 56px; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 56px; align-items: center; }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--accent-text); background: var(--accent-soft); padding: 4px 12px; border-radius: 99px; }
+h1 { font: 700 clamp(36px, 4.6vw, 52px)/1.06 var(--display); letter-spacing: -.025em; margin: 18px 0 18px; text-wrap: balance; }
+.lead { font-size: 18.5px; color: var(--text-2); margin: 0 0 30px; max-width: 34em; text-wrap: pretty; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; }
+.fine { margin-top: 18px; font-size: 13.5px; color: var(--muted); }
+
+/* Timetable preview */
+.preview { background: var(--bg); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+.preview-bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg-2); font-size: 13px; color: var(--muted); }
+.preview-bar .dots { display: flex; gap: 6px; }
+.preview-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong); }
+.preview-bar b { color: var(--text); font-weight: 650; }
+.preview-bar .ok { margin-left: auto; color: var(--ok); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.preview-bar .ok::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.grid-scroll { overflow-x: auto; }
+table.tt { border-collapse: collapse; width: 100%; min-width: 500px; font-size: 12px; table-layout: fixed; }
+.tt th:first-child, .tt td.day { width: 50px; }
+.cell b, .cell span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tt th { font-weight: 600; color: var(--muted); text-align: left; padding: 8px 6px; font-size: 11.5px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.tt th:first-child { padding-left: 14px; }
+.tt td { padding: 4px 3px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.tt td.day { padding-left: 14px; font-weight: 600; color: var(--text-2); white-space: nowrap; vertical-align: middle; }
+.tt tr:last-child td { border-bottom: 0; }
+.cell { border-radius: 6px; padding: 5px 7px; line-height: 1.25; min-height: 40px; }
+.cell b { display: block; font-weight: 600; font-size: 11.5px; }
+.cell span { font-size: 10.5px; opacity: .78; }
+.c-blue{background:var(--blue-bg);color:var(--blue-fg)} .c-green{background:var(--green-bg);color:var(--green-fg)} .c-orange{background:var(--orange-bg);color:var(--orange-fg)}
+.c-purple{background:var(--purple-bg);color:var(--purple-fg)} .c-pink{background:var(--pink-bg);color:var(--pink-fg)} .c-yellow{background:var(--yellow-bg);color:var(--yellow-fg)}
+.c-brown{background:var(--brown-bg);color:var(--brown-fg)} .c-red{background:var(--red-bg);color:var(--red-fg)} .c-gray{background:var(--gray-bg);color:var(--gray-fg)}
+
+/* Stats */
+.stats { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--bg-2); }
+.stats .wrap { display: grid; grid-template-columns: repeat(4, 1fr); }
+.stat { padding: 26px 20px; border-left: 1px solid var(--border); }
+.stat:first-child { border-left: 0; padding-left: 0; }
+.stat b { display: block; font: 700 32px/1.1 var(--display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 14px; color: var(--muted); }
+.stats .wrap.stats-note { display: block; font-size: 13px; color: var(--muted); padding: 0 24px 18px; }
+
+/* Sections */
+section.block { padding: 88px 0; }
+.kicker { font-size: 13px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-text); }
+h2 { font: 700 clamp(28px, 3.4vw, 38px)/1.15 var(--display); letter-spacing: -.02em; margin: 10px 0 14px; text-wrap: balance; }
+.section-lead { color: var(--text-2); font-size: 17px; max-width: 40em; margin: 0 0 44px; }
+
+.features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.feature { background: var(--bg); padding: 28px 26px; }
+.feature .ic { width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; margin-bottom: 16px; }
+.feature .ic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.feature h3 { font-size: 17px; margin: 0 0 6px; font-weight: 650; }
+.feature p { margin: 0; color: var(--text-2); font-size: 15px; }
+
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; counter-reset: step; }
+.step { border: 1px solid var(--border); border-radius: 14px; padding: 26px; background: var(--bg); }
+.step::before { counter-increment: step; content: counter(step); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 14px; margin-bottom: 16px; }
+.step h3 { margin: 0 0 6px; font-size: 17px; font-weight: 650; }
+.step p { margin: 0 0 16px; color: var(--text-2); font-size: 15px; }
+pre.csv { margin: 0; background: var(--bg-3); border-radius: 8px; padding: 12px 14px; font: 12px/1.6 var(--mono); color: var(--text-2); overflow-x: auto; }
+pre.csv .h { color: var(--accent-text); }
+.mini { display: flex; flex-direction: column; gap: 6px; }
+.mini .row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+.mini .bar { height: 6px; border-radius: 4px; background: var(--accent); }
+.mini .row.done { color: var(--ok); font-weight: 600; }
+
+.rules { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
+.rule-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+.rule-list li { display: flex; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.rule-list svg { flex: none; width: 22px; height: 22px; margin-top: 2px; fill: none; stroke: var(--ok); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.rule-list b { display: block; font-weight: 650; }
+.rule-list span { color: var(--text-2); font-size: 15px; }
+
+.editions { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.edition { border: 1px solid var(--border); border-radius: 14px; padding: 30px; }
+.edition.main { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.edition h3 { margin: 0 0 4px; font-size: 20px; font-weight: 650; }
+.edition .tag { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+.edition ul { margin: 0 0 24px; padding-left: 20px; color: var(--text-2); font-size: 15px; }
+.edition li { margin: 4px 0; }
+
+details { border-bottom: 1px solid var(--border); padding: 18px 0; }
+details:first-of-type { border-top: 1px solid var(--border); }
+summary { cursor: pointer; font-weight: 600; font-size: 16.5px; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; color: var(--muted); font-weight: 400; font-size: 22px; line-height: 1; }
+details[open] summary::after { content: "−"; }
+details p { color: var(--text-2); margin: 10px 0 0; max-width: 46em; }
+code { font: 13.5px var(--mono); background: var(--bg-3); padding: 1px 6px; border-radius: 4px; }
+
+.final { text-align: center; padding: 88px 0; background: var(--bg-2); border-top: 1px solid var(--border); }
+.final h2 { margin-top: 0; }
+.final .cta { justify-content: center; }
+footer { padding: 28px 0; font-size: 13.5px; color: var(--muted); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
+
+@media (max-width: 920px) {
+  .hero .wrap, .rules, .editions { grid-template-columns: minmax(0, 1fr); }
+  .hero { padding-top: 56px; }
+  .features, .steps { grid-template-columns: minmax(0, 1fr); }
+  .stats .wrap { grid-template-columns: 1fr 1fr; }
+  .stat { border-left: 0; padding-left: 0; }
+  .nav .links { display: none; }
+  .nav .btn { margin-left: auto; }
+}
+@media (max-width: 520px) {
+  .wrap { padding: 0 16px; }
+  section.block { padding: 64px 0; }
+}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="">SchoolFlow</a>
+    <nav class="links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#rules">Rules</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="btn primary sm" href="/app/">Open SchoolFlow</a>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">Timetable planner for schools</span>
+      <h1>Your whole school's timetable, solved in seconds.</h1>
+      <p class="lead">List which teacher takes which subject for each class. SchoolFlow builds every class and teacher timetable with no clashes and no free periods, then hands you an Excel workbook ready to print.</p>
+      <div class="cta">
+        <a class="btn primary" href="/app/">Start planning
+          <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <a class="btn secondary" href="#how">See how it works</a>
+      </div>
+      <p class="fine">Classes 1–12 · Divisions A–D · 2 to 7 school days · Up to 12 periods a day</p>
+    </div>
+
+    <div class="preview" aria-label="Example class timetable">
+      <div class="preview-bar">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span><b>Class 7-B</b> · Week timetable</span>
+        <span class="ok">No clashes</span>
+      </div>
+      <div class="grid-scroll"><table class="tt" id="tt"></table></div>
+    </div>
+  </div>
+</section>
+
+<div class="stats">
+  <div class="wrap">
+    <div class="stat"><b>48</b><span>class divisions</span></div>
+    <div class="stat"><b>74</b><span>teachers</span></div>
+    <div class="stat"><b>1,680</b><span>lessons placed</span></div>
+    <div class="stat"><b>5.6 s</b><span>to solve the week</span></div>
+  </div>
+  <div class="wrap stats-note">Measured on the sample school that ships with SchoolFlow: 5 days × 7 periods.</div>
+</div>
+
+<section class="block" id="features">
+  <div class="wrap">
+    <div class="kicker">Features</div>
+    <h2>Everything between the staff list and the printed timetable</h2>
+    <p class="section-lead">One place to keep requirements, generate the week, review it class by class or teacher by teacher, and fix the odd lesson by hand.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="ic c-blue"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"/></svg></div>
+        <h3>Requirements editor</h3>
+        <p>A spreadsheet-style table of class, division, subject, teacher and weekly periods. Filter by grade, search, and check it before you generate.</p>
+      </div>
+      <div class="feature">
+        <div class="ic c-green"><svg viewBox="0 0 24 24"><path d="M13 2.5 4.5 13.5H11l-1 8 8.5-11H12z"/></svg></div>
+        <h3>A real constraint solver</h3>
+        <p>Google OR-Tools CP-SAT places every lesson at once, so it finds a full timetable where hand-scheduling or simple rules get stuck.</p>
+      </div>
+      <div class="feature">
+        <div class="ic c-purple"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5a6 6 0 0 1 12 0"/><path d="M16 4.8a3.2 3.2 0 0 1 0 6.4M18 13.6a6 6 0 0 1 3 5.9"/></svg></div>
+        <h3>Class and teacher views</h3>
+        <p>Browse every division's week and every teacher's personal timetable side by side, with search to jump straight to anyone.</p>
+      </div>
+      <div class="feature">
+        <div class="ic c-orange"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></div>
+        <h3>Safe lesson edits</h3>
+        <p>Change any lesson after generating. The class sheet, the teacher's sheet and the weekly counts update together, and clashes are refused.</p>
+      </div>
+      <div class="feature">
+        <div class="ic c-pink"><svg viewBox="0 0 24 24"><circle cx="6" cy="6.5" r="2.5"/><circle cx="6" cy="17.5" r="2.5"/><path d="M8.2 7.8 20 18M8.2 16.2 20 6"/></svg></div>
+        <h3>Split a subject</h3>
+        <p>Hand some of a subject's periods to a second teacher for one division or a whole grade. Nothing is saved unless the whole split fits.</p>
+      </div>
+      <div class="feature">
+        <div class="ic c-yellow"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg></div>
+        <h3>Excel workbook out</h3>
+        <p>One sheet per division and per teacher, plus a summary and the requirements, in a single .xlsx you can print, email or keep editing.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="how" style="padding-top:0">
+  <div class="wrap">
+    <div class="kicker">How it works</div>
+    <h2>Three steps, one afternoon's work gone</h2>
+    <p class="section-lead">Most of the effort is the list you already keep. SchoolFlow does the fitting.</p>
+    <div class="steps">
+      <div class="step">
+        <h3>Enter who teaches what</h3>
+        <p>Type rows in the editor or upload a CSV with five columns.</p>
+<pre class="csv"><span class="h">class,division,subject,teacher,periods_per_week</span>
+7,B,Mathematics,Naveen Roy,7
+7,B,English,Sanjay Rao,5
+7,B,Hindi,Jithin Prasad,5</pre>
+      </div>
+      <div class="step">
+        <h3>Pick the week and generate</h3>
+        <p>Choose the school days and periods per day, then press Generate. Progress shows as it runs.</p>
+        <div class="mini">
+          <div class="row"><div class="bar" style="width:38%"></div>Input checked</div>
+          <div class="row"><div class="bar" style="width:72%"></div>Scheduling 1,680 lessons</div>
+          <div class="row done"><div class="bar" style="width:100%;background:var(--ok)"></div>Done in 5.6 s</div>
+        </div>
+      </div>
+      <div class="step">
+        <h3>Review, tweak, download</h3>
+        <p>Check each class and teacher, fix any lesson by clicking it, and download the workbook for printing.</p>
+        <div class="mini">
+          <div class="row"><span class="cell c-blue" style="min-height:0;padding:3px 8px"><b>Mathematics</b></span>→<span class="cell c-green" style="min-height:0;padding:3px 8px"><b>English</b></span></div>
+          <div class="row">Teacher sheets and counts update together</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="rules" style="padding-top:0">
+  <div class="wrap rules">
+    <div>
+      <div class="kicker">The rules</div>
+      <h2>Rules SchoolFlow never breaks</h2>
+      <p class="section-lead" style="margin-bottom:0">These are hard constraints in the solver, not suggestions. If your requirements make them impossible, SchoolFlow tells you what to look at instead of handing you a broken week.</p>
+    </div>
+    <ul class="rule-list">
+      <li><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><div><b>No teacher in two rooms at once</b><span>Every teacher has at most one lesson in any period.</span></div></li>
+      <li><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><div><b>No free periods for students</b><span>Every division has exactly one lesson in every period of the week.</span></div></li>
+      <li><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><div><b>Weekly periods add up</b><span>Each subject gets the periods you asked for. If a division's total doesn't fill the week, extra periods are shared fairly across its subjects.</span></div></li>
+      <li><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><div><b>One subject per teacher</b><span>Each teacher keeps to their own subject, across every class they take.</span></div></li>
+      <li><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><div><b>Edits stay consistent</b><span>A hand change that would double-book a teacher is refused before anything is saved.</span></div></li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" style="padding-top:0">
+  <div class="wrap">
+    <div class="kicker">Two editions</div>
+    <h2>In the browser or on a school PC</h2>
+    <p class="section-lead">Same planner, same solver, same workbook. Pick whichever suits your office.</p>
+    <div class="editions">
+      <div class="edition main">
+        <h3>SchoolFlow Web</h3>
+        <div class="tag">Runs in any modern browser</div>
+        <ul>
+          <li>Nothing to install: open it from any computer or tablet</li>
+          <li>Upload a requirements CSV, download the finished workbook</li>
+          <li>Your school's data stays in your own browser</li>
+        </ul>
+        <a class="btn primary" href="/app/">Open SchoolFlow Web</a>
+      </div>
+      <div class="edition">
+        <h3>SchoolFlow for Windows</h3>
+        <div class="tag">Portable desktop app · works offline</div>
+        <ul>
+          <li>Double-click <code>SchoolFlow.exe</code>; no Python or install needed</li>
+          <li>Runs from a pen drive, with data kept beside the app</li>
+          <li>Opens the workbook straight in Excel</li>
+        </ul>
+        <a class="btn secondary" href="#faq">Ask your administrator for a copy</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="faq" style="padding-top:0">
+  <div class="wrap">
+    <div class="kicker">FAQ</div>
+    <h2>Questions schools ask</h2>
+    <div style="max-width:780px;margin-top:28px">
+      <details><summary>What do I need to get started?</summary><p>A list of every class division's subjects, the teacher for each, and how many periods a week it gets. SchoolFlow comes with a complete sample school (classes 1–12, divisions A–D) so you can try it before entering your own.</p></details>
+      <details><summary>Can I use a Saturday or a shorter week?</summary><p>Yes. Choose anywhere from 2 to 7 school days and up to 12 periods a day. SchoolFlow checks that the week has enough room before it starts.</p></details>
+      <details><summary>What happens if a timetable isn't possible?</summary><p>The check step explains what needs fixing, such as a row with a missing field, a teacher given two different subjects, or a teacher booked for more periods than the week has. If the solver still can't find a timetable within the time limit, it says so and keeps your existing workbook untouched.</p></details>
+      <details><summary>Can I change a lesson after generating?</summary><p>Yes. Click a lesson on any class timetable to swap the subject or teacher. SchoolFlow only offers choices that don't clash and updates the teacher's sheet and counts at the same time.</p></details>
+      <details><summary>How long does generating take?</summary><p>The 48-division sample school solves in a few seconds. Large schools or tightly packed weeks can take longer; the search time limit is adjustable in Settings (up to 4 minutes online, 20 minutes in the desktop edition).</p></details>
+      <details><summary>Where is my school's data kept?</summary><p>Online, your requirements and timetables are saved in your own browser on your device. When you check or generate, they are sent to the SchoolFlow server, worked on for a moment, and not kept. To move to another computer or keep a backup, download the CSV and workbook. In the desktop edition, everything stays beside <code>SchoolFlow.exe</code>.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap">
+    <h2>Make this term's timetable before lunch.</h2>
+    <p class="section-lead" style="margin:0 auto 28px">Open SchoolFlow, load the sample school, and press Generate.</p>
+    <div class="cta"><a class="btn primary" href="/app/">Open SchoolFlow
+      <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap"><span>SchoolFlow · Timetable planner</span><span>Scheduling by Google OR-Tools · Workbooks by openpyxl</span></div>
+</footer>
+
+<script>
+(function () {
+  var periods = 7;
+  var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  var T = {
+    'Hindi': 'Jithin Prasad', 'Basic Science': 'Meera Reddy', 'Social Science': 'Vivek Nambiar', 'Computer': 'Akshay Paul',
+    'English': 'Sanjay Rao', 'Malayalam': 'Kavya Mathew', 'Mathematics': 'Naveen Roy', 'Art': 'Vandana Chacko',
+    'Work Education': 'Maya John', 'Physical Education': 'Meera Suresh'
+  };
+  var C = {
+    'Hindi': 'orange', 'Basic Science': 'green', 'Social Science': 'brown', 'Computer': 'purple', 'English': 'blue',
+    'Malayalam': 'pink', 'Mathematics': 'yellow', 'Art': 'red', 'Work Education': 'gray', 'Physical Education': 'green'
+  };
+  var week = [
+    ['Hindi', 'Basic Science', 'Social Science', 'Computer', 'Basic Science', 'Computer', 'English'],
+    ['Malayalam', 'Computer', 'Mathematics', 'Mathematics', 'English', 'Mathematics', 'Hindi'],
+    ['Social Science', 'Social Science', 'Mathematics', 'English', 'Mathematics', 'Mathematics', 'Art'],
+    ['Work Education', 'Hindi', 'Basic Science', 'English', 'Malayalam', 'Hindi', 'Physical Education'],
+    ['English', 'Malayalam', 'Social Science', 'Physical Education', 'Computer', 'Malayalam', 'Basic Science']
+  ];
+  var short = { 'Physical Education': 'PE', 'Work Education': 'Work Ed.', 'Basic Science': 'Science', 'Social Science': 'Social', 'Mathematics': 'Maths', 'Computer': 'Computer', 'Malayalam': 'Malayalam' };
+  var html = '<thead><tr><th></th>';
+  for (var p = 1; p <= periods; p++) html += '<th>P' + p + '</th>';
+  html += '</tr></thead><tbody>';
+  week.forEach(function (row, d) {
+    html += '<tr><td class="day">' + days[d] + '</td>';
+    row.forEach(function (s) {
+      var t = T[s].split(' ');
+      html += '<td><div class="cell c-' + C[s] + '"><b>' + (short[s] || s) + '</b><span>' + t[0] + ' ' + t[1][0] + '.</span></div></td>';
+    });
+    html += '</tr>';
+  });
+  document.getElementById('tt').innerHTML = html + '</tbody>';
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,445 @@
+﻿class,division,subject,teacher,periods_per_week
+1,A,English,Sanjay Sankaran,5
+1,A,Malayalam,Abhinav Warrier,5
+1,A,Mathematics,Neha Varghese,6
+1,A,EVS,Abhinav Reddy,4
+1,A,Hindi,Rohit Warrier,4
+1,A,Computer,Deepa Krishnan,5
+1,A,Art,Meera P.N.,2
+1,A,Physical Education,Meera Suresh,2
+1,A,General Knowledge,Kavya Rao,2
+1,B,English,Rahul Babu,5
+1,B,Malayalam,Vishnu Krishnan,5
+1,B,Mathematics,Vandana Reddy,6
+1,B,EVS,Abhinav Reddy,4
+1,B,Hindi,Sanjana Kurup,4
+1,B,Computer,Hari Das,5
+1,B,Art,Meera P.N.,2
+1,B,Physical Education,Sujith Panicker,2
+1,B,General Knowledge,Kavya Rao,2
+1,C,English,Ananya Kumar,5
+1,C,Malayalam,Yamini Rajan,5
+1,C,Mathematics,Lakshmi Kurup,6
+1,C,EVS,Abhinav Reddy,4
+1,C,Hindi,Rahul Joseph,5
+1,C,Computer,Arjun Warrier,4
+1,C,Art,Meera P.N.,2
+1,C,Physical Education,Vivek Varghese,2
+1,C,General Knowledge,Kavya Rao,2
+1,D,English,Ananya Kumar,5
+1,D,Malayalam,Isha Nair,5
+1,D,Mathematics,Yamini George,6
+1,D,EVS,Maya Nair,5
+1,D,Hindi,Jithin Prasad,4
+1,D,Computer,Arjun Warrier,4
+1,D,Art,Meera P.N.,2
+1,D,Physical Education,Sujith Panicker,2
+1,D,General Knowledge,Kavya Rao,2
+2,A,English,Bhavana Francis,5
+2,A,Malayalam,Vishnu Krishnan,5
+2,A,Mathematics,Nimisha Francis,6
+2,A,EVS,Abhinav Reddy,4
+2,A,Hindi,Jithin Prasad,4
+2,A,Computer,Hari Das,5
+2,A,Art,Meera P.N.,2
+2,A,Physical Education,Vivek Varghese,2
+2,A,General Knowledge,Kavya Rao,2
+2,B,English,Sarath Nambiar,5
+2,B,Malayalam,Isha Nair,5
+2,B,Mathematics,Amal Suresh,6
+2,B,EVS,Binu Antony,4
+2,B,Hindi,Sujith Rao,4
+2,B,Computer,Hari Das,5
+2,B,Art,Meera P.N.,2
+2,B,Physical Education,Sujith Panicker,2
+2,B,General Knowledge,Kavya Rao,2
+2,C,English,Bhavana Francis,5
+2,C,Malayalam,Abhinav Warrier,5
+2,C,Mathematics,Lakshmi Kurup,6
+2,C,EVS,Abhinav Reddy,4
+2,C,Hindi,Rahul Joseph,5
+2,C,Computer,Sreedevi Pillai,4
+2,C,Art,Meera P.N.,2
+2,C,Physical Education,Vivek Varghese,2
+2,C,General Knowledge,Kavya Rao,2
+2,D,English,Rahul Babu,5
+2,D,Malayalam,Abhinav Warrier,5
+2,D,Mathematics,Parvathy David,6
+2,D,EVS,Maya Nair,5
+2,D,Hindi,Jithin Prasad,4
+2,D,Computer,Akshay Paul,4
+2,D,Art,Meera P.N.,2
+2,D,Physical Education,Vivek Varghese,2
+2,D,General Knowledge,Kavya Rao,2
+3,A,English,Rahul Babu,5
+3,A,Malayalam,Yamini Rajan,5
+3,A,Mathematics,Lakshmi Pillai,6
+3,A,EVS,Abhinav Reddy,4
+3,A,Hindi,Sujith Rao,4
+3,A,Computer,Hari Das,5
+3,A,Art,Vandana Chacko,2
+3,A,Physical Education,Sujith Panicker,2
+3,A,General Knowledge,Aadhya Menon,2
+3,B,English,Rahul Babu,5
+3,B,Malayalam,Shreya Unni,5
+3,B,Mathematics,Neha Varghese,6
+3,B,EVS,Binu Antony,4
+3,B,Hindi,Sanjana Kurup,4
+3,B,Computer,Deepa Krishnan,5
+3,B,Art,Vandana Chacko,2
+3,B,Physical Education,Sujith Panicker,2
+3,B,General Knowledge,Kavya Rao,2
+3,C,English,Ananya Kumar,5
+3,C,Malayalam,Shreya Unni,5
+3,C,Mathematics,Akshay Warrier,6
+3,C,EVS,Abhinav Reddy,4
+3,C,Hindi,Rahul Joseph,5
+3,C,Computer,Arjun Warrier,4
+3,C,Art,Meera P.N.,2
+3,C,Physical Education,Sujith Panicker,2
+3,C,General Knowledge,Kavya Rao,2
+3,D,English,Binu Mohan,5
+3,D,Malayalam,Isha Nair,5
+3,D,Mathematics,Neha Varghese,6
+3,D,EVS,Maya Nair,5
+3,D,Hindi,Sujith Rao,4
+3,D,Computer,Sreedevi Pillai,4
+3,D,Art,Meera P.N.,2
+3,D,Physical Education,Vivek Varghese,2
+3,D,General Knowledge,Kavya Rao,2
+4,A,English,Sanjay Sankaran,5
+4,A,Malayalam,Vishnu Krishnan,5
+4,A,Mathematics,Lakshmi Pillai,6
+4,A,EVS,Maya Nair,4
+4,A,Hindi,Sanjana Kurup,4
+4,A,Computer,Hari Das,5
+4,A,Art,Meera P.N.,2
+4,A,Physical Education,Sujith Panicker,2
+4,A,General Knowledge,Aadhya Menon,2
+4,B,English,Rekha Mohan,5
+4,B,Malayalam,Isha Nair,5
+4,B,Mathematics,Yamini George,6
+4,B,EVS,Maya Nair,4
+4,B,Hindi,Jithin Prasad,4
+4,B,Computer,Deepa Krishnan,5
+4,B,Art,Meera P.N.,2
+4,B,Physical Education,Meera Suresh,2
+4,B,General Knowledge,Kavya Rao,2
+4,C,English,Sanjay Rao,5
+4,C,Malayalam,Shreya Unni,5
+4,C,Mathematics,Parvathy David,6
+4,C,EVS,Binu Antony,4
+4,C,Hindi,Rahul Joseph,5
+4,C,Computer,Arjun Warrier,4
+4,C,Art,Meera P.N.,2
+4,C,Physical Education,Meera Suresh,2
+4,C,General Knowledge,Kavya Rao,2
+4,D,English,Ananya Kumar,5
+4,D,Malayalam,Abhinav Warrier,5
+4,D,Mathematics,Amal Suresh,6
+4,D,EVS,Maya Nair,5
+4,D,Hindi,Sujith Rao,4
+4,D,Computer,Deepa Krishnan,4
+4,D,Art,Meera P.N.,2
+4,D,Physical Education,Sujith Panicker,2
+4,D,General Knowledge,Kavya Rao,2
+5,A,English,Binu Mohan,5
+5,A,Malayalam,Rohit David,4
+5,A,Hindi,Jithin Prasad,4
+5,A,Mathematics,Amal Suresh,6
+5,A,Basic Science,Sreedevi Sankaran,4
+5,A,Social Science,Kavya David,4
+5,A,Computer,Sreedevi Pillai,4
+5,A,Physical Education,Vivek Varghese,2
+5,A,Art,Vandana Chacko,1
+5,A,Work Education,Maya John,1
+5,B,English,Sanjay Sankaran,5
+5,B,Malayalam,Midhun Reddy,4
+5,B,Hindi,Rohit Warrier,4
+5,B,Mathematics,Parvathy David,6
+5,B,Basic Science,Sreedevi Sankaran,4
+5,B,Social Science,Basil Sharma,4
+5,B,Computer,Sreedevi Pillai,4
+5,B,Physical Education,Sujith Panicker,2
+5,B,Art,Vandana Chacko,1
+5,B,Work Education,Maya John,1
+5,C,English,Vivek Panicker,5
+5,C,Malayalam,Rohit David,4
+5,C,Hindi,Rohit Warrier,4
+5,C,Mathematics,Lakshmi Kurup,6
+5,C,Basic Science,Sreedevi Sankaran,4
+5,C,Social Science,Deepa Nambiar,4
+5,C,Computer,Akshay Paul,4
+5,C,Physical Education,Vivek Varghese,2
+5,C,Art,Vandana Chacko,1
+5,C,Work Education,Maya John,1
+5,D,English,Sarath Nambiar,5
+5,D,Malayalam,Rohit David,4
+5,D,Hindi,Sanjana Kurup,4
+5,D,Mathematics,Naveen Roy,6
+5,D,Basic Science,Meera Reddy,4
+5,D,Social Science,Kavya David,4
+5,D,Computer,Akshay Paul,4
+5,D,Physical Education,Sujith Panicker,2
+5,D,Art,Vandana Chacko,1
+5,D,Work Education,Maya John,1
+6,A,English,Rekha Mohan,5
+6,A,Malayalam,Shreya Unni,4
+6,A,Hindi,Rohit Warrier,4
+6,A,Mathematics,Lakshmi Pillai,6
+6,A,Basic Science,Parvathy Reddy,4
+6,A,Social Science,Basil Sharma,4
+6,A,Computer,Arjun Warrier,4
+6,A,Physical Education,Sujith Panicker,2
+6,A,Art,Vandana Chacko,1
+6,A,Work Education,Maya John,1
+6,B,English,Rekha Mohan,5
+6,B,Malayalam,Kavya Mathew,4
+6,B,Hindi,Rahul Joseph,4
+6,B,Mathematics,Nimisha Francis,6
+6,B,Basic Science,Parvathy Reddy,4
+6,B,Social Science,Kavya David,4
+6,B,Computer,Akshay Paul,4
+6,B,Physical Education,Vivek Varghese,2
+6,B,Art,Vandana Chacko,1
+6,B,Work Education,Maya John,1
+6,C,English,Rahul Babu,5
+6,C,Malayalam,Rohit David,4
+6,C,Hindi,Sujith Rao,4
+6,C,Mathematics,Vandana Reddy,6
+6,C,Basic Science,Parvathy Reddy,4
+6,C,Social Science,Vivek Nambiar,4
+6,C,Computer,Arjun Warrier,4
+6,C,Physical Education,Vivek Varghese,2
+6,C,Art,Vandana Chacko,1
+6,C,Work Education,Maya John,1
+6,D,English,Vivek Panicker,5
+6,D,Malayalam,Rohit David,4
+6,D,Hindi,Rahul Joseph,4
+6,D,Mathematics,Parvathy David,6
+6,D,Basic Science,Parvathy Reddy,4
+6,D,Social Science,Basil Sharma,4
+6,D,Computer,Akshay Paul,4
+6,D,Physical Education,Sujith Panicker,2
+6,D,Art,Vandana Chacko,1
+6,D,Work Education,Maya John,1
+7,A,English,Sarath Nambiar,5
+7,A,Malayalam,Shreya Unni,4
+7,A,Hindi,Sanjana Kurup,4
+7,A,Mathematics,Vandana Reddy,6
+7,A,Basic Science,Parvathy Reddy,4
+7,A,Social Science,Deepa Nambiar,4
+7,A,Computer,Deepa Krishnan,4
+7,A,Physical Education,Sujith Panicker,2
+7,A,Art,Vandana Chacko,1
+7,A,Work Education,Maya John,1
+7,B,English,Sanjay Rao,5
+7,B,Malayalam,Kavya Mathew,4
+7,B,Hindi,Jithin Prasad,4
+7,B,Mathematics,Naveen Roy,6
+7,B,Basic Science,Meera Reddy,4
+7,B,Social Science,Vivek Nambiar,4
+7,B,Computer,Akshay Paul,4
+7,B,Physical Education,Meera Suresh,2
+7,B,Art,Vandana Chacko,1
+7,B,Work Education,Maya John,1
+7,C,English,Sanjay Sankaran,5
+7,C,Malayalam,Rohit David,4
+7,C,Hindi,Sujith Rao,4
+7,C,Mathematics,Lakshmi Kurup,6
+7,C,Basic Science,Sreedevi Sankaran,4
+7,C,Social Science,Deepa Nambiar,4
+7,C,Computer,Akshay Paul,4
+7,C,Physical Education,Vivek Varghese,2
+7,C,Art,Vandana Chacko,1
+7,C,Work Education,Maya John,1
+7,D,English,Sanjay Sankaran,5
+7,D,Malayalam,Kavya Mathew,4
+7,D,Hindi,Jithin Prasad,4
+7,D,Mathematics,Amal Suresh,6
+7,D,Basic Science,Parvathy Reddy,4
+7,D,Social Science,Deepa Nambiar,4
+7,D,Computer,Arjun Warrier,4
+7,D,Physical Education,Sujith Panicker,2
+7,D,Art,Vandana Chacko,1
+7,D,Work Education,Maya John,1
+8,A,English,Sanjay Rao,5
+8,A,Malayalam,Ananya Bose,4
+8,A,Hindi,Sanjana Kurup,4
+8,A,Mathematics,Nimisha Francis,6
+8,A,Basic Science,Parvathy Reddy,4
+8,A,Social Science,Deepa Nambiar,4
+8,A,Computer,Sreedevi Pillai,4
+8,A,Physical Education,Vivek Varghese,2
+8,A,Art,Vandana Chacko,1
+8,A,Work Education,Maya John,1
+8,B,English,Bhavana Francis,5
+8,B,Malayalam,Kavya Mathew,4
+8,B,Hindi,Sujith Rao,4
+8,B,Mathematics,Naveen Roy,6
+8,B,Basic Science,Sreedevi Sankaran,4
+8,B,Social Science,Basil Sharma,4
+8,B,Computer,Sreedevi Pillai,4
+8,B,Physical Education,Vivek Varghese,2
+8,B,Art,Vandana Chacko,1
+8,B,Work Education,Maya John,1
+8,C,English,Binu Mohan,5
+8,C,Malayalam,Ananya Bose,4
+8,C,Hindi,Sanjana Kurup,4
+8,C,Mathematics,Akshay Warrier,6
+8,C,Basic Science,Sreedevi Sankaran,4
+8,C,Social Science,Kavya David,4
+8,C,Computer,Sreedevi Pillai,4
+8,C,Physical Education,Vivek Varghese,2
+8,C,Art,Vandana Chacko,1
+8,C,Work Education,Maya John,1
+8,D,English,Bhavana Francis,5
+8,D,Malayalam,Ananya Bose,4
+8,D,Hindi,Rohit Warrier,4
+8,D,Mathematics,Yamini George,6
+8,D,Basic Science,Sreedevi Sankaran,4
+8,D,Social Science,Kavya David,4
+8,D,Computer,Deepa Krishnan,4
+8,D,Physical Education,Vivek Varghese,2
+8,D,Art,Vandana Chacko,1
+8,D,Work Education,Maya John,1
+9,A,English,Sarath Nambiar,5
+9,A,Malayalam,Ananya Bose,4
+9,A,Hindi,Neha Das,3
+9,A,Mathematics,Akshay Warrier,6
+9,A,Physics,Neha Chacko,3
+9,A,Chemistry,Abhinav Pillai,3
+9,A,Biology,Maya Mathew,3
+9,A,Social Science,Kavya David,4
+9,A,Computer Science,Haritha Nair,3
+9,A,Physical Education,Meera Suresh,1
+9,B,English,Sanjay Rao,5
+9,B,Malayalam,Ananya Bose,4
+9,B,Hindi,Rohit Warrier,3
+9,B,Mathematics,Nimisha Francis,6
+9,B,Physics,Neha Chacko,3
+9,B,Chemistry,Abhinav Pillai,3
+9,B,Biology,Nimisha Bose,3
+9,B,Social Science,Basil Sharma,4
+9,B,Computer Science,Haritha Nair,3
+9,B,Physical Education,Meera Suresh,1
+9,C,English,Sarath Nambiar,5
+9,C,Malayalam,Kavya Mathew,4
+9,C,Hindi,Neha Das,3
+9,C,Mathematics,Naveen Roy,6
+9,C,Physics,Sanjay Unni,3
+9,C,Chemistry,Abhinav Pillai,3
+9,C,Biology,Nimisha Bose,3
+9,C,Social Science,Deepa Nambiar,4
+9,C,Computer Science,Geetha Rajan,3
+9,C,Physical Education,Meera Suresh,1
+9,D,English,Binu Mohan,5
+9,D,Malayalam,Ananya Bose,4
+9,D,Hindi,Rohit Warrier,3
+9,D,Mathematics,Vandana Reddy,6
+9,D,Physics,Neha Chacko,3
+9,D,Chemistry,Abhinav Pillai,3
+9,D,Biology,Maya Mathew,3
+9,D,Social Science,Vivek Nambiar,4
+9,D,Computer Science,Geetha Rajan,3
+9,D,Physical Education,Meera Suresh,1
+10,A,English,Binu Mohan,5
+10,A,Malayalam,Kavya Mathew,4
+10,A,Hindi,Neha Das,3
+10,A,Mathematics,Akshay Warrier,6
+10,A,Physics,Neha Chacko,3
+10,A,Chemistry,Abhinav Pillai,3
+10,A,Biology,Nimisha Bose,3
+10,A,Social Science,Kavya David,4
+10,A,Computer Science,Haritha Nair,3
+10,A,Physical Education,Meera Suresh,1
+10,B,English,Rekha Mohan,5
+10,B,Malayalam,Ananya Bose,4
+10,B,Hindi,Neha Das,3
+10,B,Mathematics,Neha Varghese,6
+10,B,Physics,Neha Chacko,3
+10,B,Chemistry,Abhinav Pillai,3
+10,B,Biology,Maya Mathew,3
+10,B,Social Science,Basil Sharma,4
+10,B,Computer Science,Haritha Nair,3
+10,B,Physical Education,Meera Suresh,1
+10,C,English,Ananya Kumar,5
+10,C,Malayalam,Rohit David,4
+10,C,Hindi,Neha Das,3
+10,C,Mathematics,Yamini George,6
+10,C,Physics,Neha Chacko,3
+10,C,Chemistry,Adithya Das,3
+10,C,Biology,Nimisha Bose,3
+10,C,Social Science,Deepa Nambiar,4
+10,C,Computer Science,Haritha Nair,3
+10,C,Physical Education,Meera Suresh,1
+10,D,English,Bhavana Francis,5
+10,D,Malayalam,Kavya Mathew,4
+10,D,Hindi,Neha Das,3
+10,D,Mathematics,Lakshmi Pillai,6
+10,D,Physics,Sanjay Unni,3
+10,D,Chemistry,Adithya Das,3
+10,D,Biology,Nimisha Bose,3
+10,D,Social Science,Basil Sharma,4
+10,D,Computer Science,Haritha Nair,3
+10,D,Physical Education,Meera Suresh,1
+11,A,English,Vivek Panicker,4
+11,A,Malayalam,Shreya Unni,5
+11,A,Mathematics,Arjun Koshy,5
+11,A,Physics,Sanjay Unni,5
+11,A,Chemistry,Adithya Das,5
+11,A,Biology,Maya Mathew,5
+11,A,Computer Science,Geetha Rajan,5
+11,A,Physical Education,Meera Suresh,1
+11,B,English,Sanjay Rao,5
+11,B,Malayalam,Abhinav Warrier,5
+11,B,Mathematics,Arjun Koshy,5
+11,B,Physics,Sanjay Unni,5
+11,B,Chemistry,Adithya Das,5
+11,B,Biology,Maya Mathew,4
+11,B,Computer Science,Geetha Rajan,5
+11,B,Physical Education,Meera Suresh,1
+11,C,English,Madhav Thomas,6
+11,C,Malayalam,Yamini Rajan,6
+11,C,Accountancy,Aarav Nambiar,6
+11,C,Business Studies,Akhila Varghese,5
+11,C,Economics,Adithya Kumar,5
+11,C,Computer Applications,Basil Kumar,6
+11,C,Physical Education,Meera Suresh,1
+11,D,English,Madhav Thomas,6
+11,D,Malayalam,Vishnu Krishnan,5
+11,D,History,Yamini Warrier,5
+11,D,Political Science,Amal Sankaran,6
+11,D,Economics,Adithya Kumar,6
+11,D,Sociology,Arun Reddy,6
+11,D,Physical Education,Meera Suresh,1
+12,A,English,Vivek Panicker,4
+12,A,Malayalam,Yamini Rajan,5
+12,A,Mathematics,Arjun Koshy,5
+12,A,Physics,Sanjay Unni,5
+12,A,Chemistry,Adithya Das,5
+12,A,Biology,Maya Mathew,5
+12,A,Computer Science,Geetha Rajan,5
+12,A,Physical Education,Meera Suresh,1
+12,B,English,Rekha Mohan,5
+12,B,Malayalam,Vishnu Krishnan,5
+12,B,Mathematics,Arjun Koshy,5
+12,B,Physics,Sanjay Unni,5
+12,B,Chemistry,Adithya Das,5
+12,B,Biology,Maya Mathew,4
+12,B,Computer Science,Geetha Rajan,5
+12,B,Physical Education,Meera Suresh,1
+12,C,English,Madhav Thomas,6
+12,C,Malayalam,Yamini Rajan,6
+12,C,Accountancy,Aarav Nambiar,6
+12,C,Business Studies,Akhila Varghese,5
+12,C,Economics,Adithya Kumar,5
+12,C,Computer Applications,Basil Kumar,6
+12,C,Physical Education,Meera Suresh,1
+12,D,English,Madhav Thomas,6
+12,D,Malayalam,Isha Nair,5
+12,D,History,Yamini Warrier,5
+12,D,Political Science,Amal Sankaran,6
+12,D,Economics,Adithya Kumar,6
+12,D,Sociology,Arun Reddy,6
+12,D,Physical Education,Meera Suresh,1

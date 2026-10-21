@@ -1,0 +1,5 @@
+start_web.bat
+server.py
+README.md
+data
+**/__pycache__

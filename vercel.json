@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": "site",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 300,
+      "includeFiles": "{engine,sample}/**",
+      "excludeFiles": "{**/tests/**,**/*.pyi,**/*.pxd,**/*.pyx}"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/call", "destination": "/api/index" }
+  ]
+}
