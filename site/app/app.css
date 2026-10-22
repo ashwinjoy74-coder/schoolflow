@@ -911,7 +911,9 @@ tr.group td .gname { font-size: 15.5px; }
 .gf-pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .gf-inline { display: flex; flex-wrap: wrap; gap: 16px 32px; }
 .gf-act { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 32px; gap: 8px; margin-bottom: 8px; align-items: center; }
-.gf-act .input, .gf .input { height: 36px; }
+.gf .input { height: 36px; }
+.gf-act .select { width: 100%; height: 36px; min-width: 0; }
+.gf-act .select > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* A group period in a class timetable: dashed edge, people icon before the name. */
 .lesson.grp { border-left-style: dashed; }
@@ -982,7 +984,7 @@ tr.group td .gname { font-size: 15.5px; }
   .grp-wrap { padding-top: 10px; }
   .gf-act { grid-template-columns: minmax(0, 1fr) 32px; }
   .gf-act { margin-bottom: 14px; }
-  .gf-act [data-a="teacher"] { grid-column: 1; }
+  .gf-act [data-x="pick-teacher"] { grid-column: 1; }
   .gf-act [data-x="rm"] { grid-column: 2; grid-row: 1; }
 
   /* Dialogs use nearly the whole visible screen. */

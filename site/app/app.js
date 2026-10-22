@@ -765,6 +765,41 @@ function renderGroups(host) {
   </div>`;
 }
 
+// A searchable list of names, with an "Other…" entry that asks for a new one.
+function pickName(anchor, { title, names, hints = {}, current, otherLabel, onPick }) {
+  const OTHER = ' other';
+  const build = (term) => {
+    const t = term.trim().toLowerCase();
+    const items = names.filter((n) => !t || n.toLowerCase().includes(t))
+      .map((n) => ({ label: n, value: n, hint: hints[n] || '', checked: n === current }));
+    return [...items, { sep: true }, { label: otherLabel, icon: 'plus', value: OTHER }];
+  };
+  const header = `<div class="pf"><input id="pick-q" placeholder="${esc(title)}" autocomplete="off"></div>`;
+  const menu = openMenu(anchor, build(''), async (value) => {
+    if (value !== OTHER) return onPick(value);
+    const typed = await askName(otherLabel.replace(/…$/, ''));
+    if (typed) onPick(typed);
+  }, { className: 'picker', header, width: Math.max(280, anchor.offsetWidth) });
+  const input = $('#pick-q', menu);
+  input.focus();
+  input.addEventListener('input', () => { $('.ml', menu).innerHTML = menuItems(openMenuState.items = build(input.value)); });
+}
+
+// Ask for one name in a small dialog; resolves to '' when cancelled.
+function askName(title) {
+  return new Promise((resolve) => {
+    let done = false;
+    const m = modal(`<div class="modal-body"><h3>${esc(title)}</h3><input class="input" id="ask-name" autocomplete="off" style="margin-top:8px"></div>
+      <div class="modal-foot"><button class="btn secondary" data-r="0">Cancel</button><button class="btn primary" data-r="1">Add</button></div>`,
+    { onClose: () => { if (!done) resolve(''); } });
+    const input = $('#ask-name', m.el);
+    const finish = (ok) => { done = true; const value = input.value.trim(); m.close(); resolve(ok ? value : ''); };
+    m.el.addEventListener('click', (e) => { const b = e.target.closest('[data-r]'); if (b) finish(b.dataset.r === '1'); });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') finish(true); });
+    setTimeout(() => input.focus(), 20);
+  });
+}
+
 function openGroupEditor(key) {
   if (S.req.peek) closePeek();
   const existing = key ? reqGroups().find((g) => g.key === key) : null;
@@ -778,8 +813,7 @@ function openGroupEditor(key) {
   const m = modal(`<div class="modal-body"><h3>${existing ? 'Edit group' : 'New group'}</h3>
       <p>The divisions you pick take this group at the same time, split into parts with their own teachers, like AMD or a Bio / Computer split.
         Pick one division for a split inside one class, or several when their students mix.</p>
-      <div id="grp-form"></div>
-      <div id="g-lists"></div></div>
+      <div id="grp-form"></div></div>
     <div class="modal-foot">${existing ? `<button class="btn danger" data-x="delete">${icon('trash', 'sm')}Delete</button><span style="flex:1"></span>` : ''}
       <button class="btn secondary" data-x="cancel">Cancel</button>
       <button class="btn primary" data-x="save">${existing ? 'Save group' : 'Add group'}</button></div>`, { wide: true });
@@ -797,14 +831,13 @@ function openGroupEditor(key) {
       </div>
       <div class="gf"><div class="gf-l">Parts and teachers</div>
         ${f.activities.map((a, i) => `<div class="gf-act">
-          <input class="input" data-a="subject" data-i="${i}" placeholder="Part, e.g. Music or Biology" value="${esc(a.subject)}" autocomplete="off">
-          <input class="input" data-a="teacher" data-i="${i}" list="grp-teachers-${i}" placeholder="Teacher" value="${esc(a.teacher)}" autocomplete="off">
+          <div class="select bordered" data-x="pick-subject" data-i="${i}">${a.subject ? esc(a.subject) : '<span class="placeholder">Choose a subject</span>'}<span style="flex:1"></span>${icon('down', 'sm')}</div>
+          <div class="select bordered" data-x="pick-teacher" data-i="${i}">${a.teacher ? esc(a.teacher) : '<span class="placeholder">Choose a teacher</span>'}<span style="flex:1"></span>${icon('down', 'sm')}</div>
           <button class="btn ghost icon" data-x="rm" data-i="${i}" title="Remove activity" ${f.activities.length < 2 ? 'disabled' : ''}>${icon('x', 'sm')}</button></div>`).join('')}
         <button class="btn ghost sm" data-x="add">${icon('plus', 'sm')}Add part</button></div>
       <div id="g-sep"></div>
       <p class="faint small">${f.grades.length && f.divisions.length ? `${classList().join(', ')} each keep ${capacity - f.periods} of ${capacity} periods for their other subjects.${f.grades.length > 1 ? ' Each class gets its own periods.' : ''}` : 'Pick a class and its divisions.'}</p>`;
     renderSeparate();
-    renderLists();
   };
   // Each part's teacher box suggests teachers of that subject ("Biology" → biology
   // teachers); a part nobody teaches yet, like Karate, suggests everyone.
@@ -814,9 +847,23 @@ function openGroupEditor(key) {
     const list = p.length < 3 ? [] : [...new Set(S.req.rows.filter((r) => r.teacher && same(r.subject)).map((r) => r.teacher))];
     return list.length ? list.sort((a, b) => a.localeCompare(b)) : teachers;
   };
-  const renderLists = () => {
-    $('#g-lists', m.el).innerHTML = f.activities.map((a, i) =>
-      `<datalist id="grp-teachers-${i}">${teachersFor(a.subject).map((t) => `<option value="${esc(t)}">`).join('')}</datalist>`).join('');
+  const subjects = [...new Set(S.req.rows.map((r) => r.subject.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const subjectOf = new Map();
+  S.req.rows.forEach((r) => { if (r.teacher && !isGroupRow(r) && !subjectOf.has(r.teacher)) subjectOf.set(r.teacher, r.subject); });
+  const pickPart = (anchor, i) => {
+    const a = f.activities[i];
+    pickName(anchor, { title: 'Find a subject…', names: subjects, current: a.subject, otherLabel: 'Other subject (e.g. Karate)…', onPick: (value) => {
+      a.subject = value;
+      if (a.teacher && !teachersFor(value).includes(a.teacher)) a.teacher = '';
+      render();
+    } });
+  };
+  const pickTeacher = (anchor, i) => {
+    const a = f.activities[i];
+    const names = teachersFor(a.subject);
+    const hints = names === teachers ? Object.fromEntries(names.map((t) => [t, subjectOf.get(t) || ''])) : {};
+    pickName(anchor, { title: a.subject ? `Find a ${a.subject} teacher…` : 'Find a teacher…', names, hints, current: a.teacher,
+      otherLabel: 'Other teacher…', onPick: (value) => { a.teacher = value; render(); } });
   };
   // The single subject rows this group replaces (e.g. separate Biology and Computer rows).
   const classList = () => f.grades.flatMap((g) => f.divisions.map((d) => `${g}-${d}`));
@@ -831,7 +878,6 @@ function openGroupEditor(key) {
   m.el.addEventListener('input', (e) => {
     const el = e.target;
     if (el.id === 'g-name') f.name = el.value;
-    else if (el.dataset.a) { f.activities[Number(el.dataset.i)][el.dataset.a] = el.value; if (el.dataset.a === 'subject') { renderSeparate(); renderLists(); } }
   });
   m.el.addEventListener('click', (e) => {
     const b = e.target.closest('[data-x]');
@@ -840,6 +886,8 @@ function openGroupEditor(key) {
     if (x === 'cancel') return m.close();
     if (x === 'save') return saveGroup();
     if (x === 'delete') return deleteGroup();
+    if (x === 'pick-subject') return pickPart(b, Number(b.dataset.i));
+    if (x === 'pick-teacher') return pickTeacher(b, Number(b.dataset.i));
     if (x === 'grade') f.grades = (f.grades.includes(b.dataset.v) ? f.grades.filter((g) => g !== b.dataset.v) : [...f.grades, b.dataset.v]).sort((p, q) => p - q);
     else if (x === 'div') f.divisions = f.divisions.includes(b.dataset.v) ? f.divisions.filter((d) => d !== b.dataset.v) : [...f.divisions, b.dataset.v].sort();
     else if (x === 'pd') f.periods = Math.max(1, Math.min(capacity, f.periods + Number(b.dataset.d)));
@@ -848,7 +896,7 @@ function openGroupEditor(key) {
     else if (x === 'add') f.activities.push({ subject: '', teacher: '' });
     else if (x === 'rm') f.activities.splice(Number(b.dataset.i), 1);
     render();
-    if (x === 'add') $$('[data-a="subject"]', m.el).pop()?.focus();
+    if (x === 'add') pickPart($$('[data-x="pick-subject"]', m.el).pop(), f.activities.length - 1);
   });
   const saveGroup = () => {
     const name = f.name.trim();
