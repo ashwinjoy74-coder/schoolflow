@@ -332,6 +332,60 @@ function prop(iconName, name, value, opts = {}) {
 
 const REQ_FIELDS = ['class', 'division', 'subject', 'teacher', 'periods_per_week'];
 
+// Group periods (e.g. AMD) are rows with a "group" value: one row per division and
+// activity. "double" marks a row or group whose periods come two together.
+const isGroupRow = (row) => !!String(row.group || '').trim();
+const isYes = (value) => ['yes', 'y', 'true', '1', 'x'].includes(String(value || '').trim().toLowerCase());
+
+function ensureField(name) {
+  if (S.req.fieldnames.includes(name)) return;
+  S.req.fieldnames.push(name);
+  S.req.rows.forEach((row) => { if (row[name] === undefined) row[name] = ''; });
+}
+
+// One entry per class and group name, built from its activity rows.
+function reqGroups() {
+  const groups = new Map();
+  S.req.rows.forEach((row, index) => {
+    if (!isGroupRow(row)) return;
+    const key = `${row.class}|${row.group.trim().toLowerCase()}`;
+    if (!groups.has(key)) {
+      groups.set(key, { key, name: row.group.trim(), grade: row.class, divisions: [], activities: [],
+        periods: Number(row.periods_per_week) || 0, double: false, indexes: [] });
+    }
+    const g = groups.get(key);
+    g.indexes.push(index);
+    g.double = g.double || isYes(row.double);
+    if (!g.divisions.includes(row.division)) g.divisions.push(row.division);
+    const same = (a) => a.subject.toLowerCase() === row.subject.toLowerCase() && a.teacher.toLowerCase() === row.teacher.toLowerCase();
+    if (!g.activities.some(same)) g.activities.push({ subject: row.subject, teacher: row.teacher });
+  });
+  return [...groups.values()].map((g) => { g.divisions.sort(); return g; })
+    .sort((a, b) => (Number(a.grade) - Number(b.grade)) || a.name.localeCompare(b.name));
+}
+
+// Group periods per division, e.g. {"6-A": 4}.
+function groupPeriodsByClass() {
+  const out = {};
+  reqGroups().forEach((g) => g.divisions.forEach((d) => { const k = `${g.grade}-${d}`; out[k] = (out[k] || 0) + g.periods; }));
+  return out;
+}
+
+// Remove rows by index and append new ones, keeping the "changed" marks in step.
+function replaceRows(remove, add) {
+  const drop = new Set(remove);
+  const kept = [];
+  const changed = new Set();
+  S.req.rows.forEach((row, i) => {
+    if (drop.has(i)) return;
+    if (S.req.changed.has(i)) changed.add(kept.length);
+    kept.push(row);
+  });
+  add.forEach((row) => { changed.add(kept.length); kept.push(row); });
+  S.req.rows = kept;
+  S.req.changed = changed;
+}
+
 async function loadRequirements(force = false) {
   if (S.req.loaded && !force) return;
   const data = await call('requirements');
@@ -361,6 +415,7 @@ function visibleRows() {
   const term = q.trim().toLowerCase();
   const out = [];
   rows.forEach((row, index) => {
+    if (isGroupRow(row)) return;
     if (grade !== 'All' && row.class !== grade) return;
     if (division !== 'All' && row.division !== division) return;
     if (term && !`${row.subject} ${row.teacher} ${row.class}-${row.division}`.toLowerCase().includes(term)) return;
@@ -393,6 +448,7 @@ RENDER.requirements = async () => {
       <div class="tabs">
         <div class="tab ${S.req.view === 'table' ? 'on' : ''}" data-action="req-view" data-view="table">${icon('table')}All rows <span class="n" id="req-n"></span></div>
         <div class="tab ${S.req.view === 'group' ? 'on' : ''}" data-action="req-view" data-view="group">${icon('layers')}By class</div>
+        <div class="tab ${S.req.view === 'groups' ? 'on' : ''}" data-action="req-view" data-view="groups">${icon('users')}Groups <span class="n" id="req-gn"></span></div>
       </div>
       <div class="spacer"></div>
       <div class="select" id="f-div" data-action="filter-div"></div>
@@ -426,7 +482,8 @@ function renderFilters() {
 function renderReqStats() {
   const host = $('#req-stats');
   if (!host) return;
-  const rows = S.req.rows;
+  const rows = S.req.rows.filter((r) => !isGroupRow(r));
+  const groupCount = reqGroups().length;
   const subjectsByTeacher = new Map();
   rows.forEach((r) => {
     const key = r.teacher.toLowerCase();
@@ -434,13 +491,15 @@ function renderReqStats() {
     subjectsByTeacher.get(key).add(r.subject.toLowerCase());
   });
   const conflicts = [...subjectsByTeacher.values()].filter((s) => s.size > 1).length;
+  const teacherCount = new Set([...subjectsByTeacher.keys(), ...S.req.rows.filter(isGroupRow).map((r) => r.teacher.toLowerCase())]).size;
   const tile = (tint, iconName, value, label, extra = '') =>
     `<div class="rq-tile ${extra}"><div class="chip-i tint-${tint}">${icon(iconName, 'lg')}</div><div><b>${value}</b><span>${label}</span></div></div>`;
   host.innerHTML =
     tile('blue', 'table', rows.length, 'rows') +
     tile('purple', 'grid', new Set(rows.map((r) => `${r.class}-${r.division}`)).size, 'divisions') +
-    tile('green', 'users', subjectsByTeacher.size, 'teachers') +
+    tile('green', 'users', teacherCount, 'teachers') +
     tile('orange', 'layers', new Set(rows.map((r) => r.subject.toLowerCase())).size, 'subjects') +
+    (groupCount ? tile('purple', 'users', groupCount, groupCount === 1 ? 'group' : 'groups') : '') +
     (conflicts
       ? tile('orange', 'alert', conflicts, conflicts === 1 ? 'teacher has 2+ subjects' : 'teachers have 2+ subjects', 'warn')
       : tile('green', 'check', 'All good', 'one subject per teacher', 'ok'));
@@ -453,7 +512,7 @@ function rowCells(row, max) {
   return `<td class="title"><span class="subj-pill b-${colorFor(row.subject)}">${esc(row.subject)}</span></td>
     <td><span class="cls-chip">${esc(row.class)}</span></td><td><span class="cls-chip div">${esc(row.division)}</span></td>
     <td><div class="cellflex">${avatar(row.teacher)}<span>${esc(row.teacher)}</span></div></td>
-    <td class="num"><div class="pcell"><span class="pb"><i style="width:${Math.round((n / max) * 100)}%"></i></span><b>${esc(row.periods_per_week)}</b></div></td>`;
+    <td class="num"><div class="pcell">${isYes(row.double) ? '<span class="tag c-blue dbl" title="Two periods together">×2</span>' : ''}<span class="pb"><i style="width:${Math.round((n / max) * 100)}%"></i></span><b>${esc(row.periods_per_week)}</b></div></td>`;
 }
 
 function renderReqTable() {
@@ -461,11 +520,14 @@ function renderReqTable() {
   if (!host) return;
   const indexes = visibleRows();
   $('#req-n').textContent = indexes.length;
+  const gn = $('#req-gn');
+  if (gn) gn.textContent = reqGroups().length;
   if (S.req.missing) {
     host.innerHTML = `<div class="empty-state"><div><h3>No requirements file</h3><p>${esc(S.req.path)} was not found. Upload a CSV or restore the sample data in Settings.</p>
       <button class="btn primary" data-action="choose-req">Upload a CSV…</button></div></div>`;
     return;
   }
+  if (S.req.view === 'groups') { renderGroups(host); return; }
   const sel = S.req.peek?.index;
   const head = `<thead><tr>
     <th style="width:34%"><div class="th">Subject</div></th>
@@ -489,10 +551,12 @@ function renderReqTable() {
       const [ga, da] = a[0].split('-'); const [gb, db] = b[0].split('-');
       return (Number(ga) - Number(gb)) || da.localeCompare(db);
     });
+    const groupPeriods = groupPeriodsByClass();
     for (const [key, list] of sorted) {
-      const total = list.reduce((sum, i) => sum + (Number(S.req.rows[i].periods_per_week) || 0), 0);
+      const inGroups = groupPeriods[key] || 0;
+      const total = list.reduce((sum, i) => sum + (Number(S.req.rows[i].periods_per_week) || 0), 0) + inGroups;
       const fits = total === capacity;
-      body += `<tr class="group"><td colspan="5"><div class="gl"><span class="gname">Class ${esc(key)}</span><span class="gc">${plural(list.length, 'subject')} · ${total} periods</span>
+      body += `<tr class="group"><td colspan="5"><div class="gl"><span class="gname">Class ${esc(key)}</span><span class="gc">${plural(list.length, 'subject')}${inGroups ? ` + ${inGroups} group` : ''} · ${total} periods</span>
         <span class="gmeter"><i class="${fits ? '' : 'adj'}" style="width:${Math.min(100, Math.round((total / capacity) * 100))}%"></i></span>
         <span class="gbadge ${fits ? 'ok' : 'adj'}" title="${fits ? 'Exactly fills the week' : `The week has ${capacity} slots; repeats are adjusted automatically`}">${fits ? `Fills ${capacity}` : `${total > capacity ? '+' : ''}${total - capacity} vs ${capacity}`}</span></div></td></tr>`;
       body += list.map(rowHtml).join('');
@@ -511,6 +575,7 @@ function openPeek(index, values) {
   if (values === undefined) {
     const row = S.req.rows[index];
     values = Object.fromEntries(REQ_FIELDS.map((f) => [f, row[f] || '']));
+    values.double = isYes(row.double);
   }
   S.req.peek = { index, values: { periods_per_week: '1', ...values } };
   renderPeek();
@@ -527,7 +592,7 @@ function closePeek() {
 function teacherSubjects(teacher, ignoreIndex) {
   const key = teacher.trim().toLowerCase();
   const subjects = new Set();
-  S.req.rows.forEach((r, i) => { if (i !== ignoreIndex && r.teacher.toLowerCase() === key && r.subject) subjects.add(r.subject); });
+  S.req.rows.forEach((r, i) => { if (i !== ignoreIndex && !isGroupRow(r) && r.teacher.toLowerCase() === key && r.subject) subjects.add(r.subject); });
   return [...subjects];
 }
 
@@ -558,6 +623,7 @@ function renderPeek() {
           ${prop('list', 'Division', `<div class="select bordered" data-action="pk-div">${v.division ? esc(v.division) : '<span class="placeholder">Choose</span>'}${icon('down', 'sm')}</div>`)}
           ${prop('user', 'Teacher', `<div class="combo"><input id="pk-teacher" placeholder="Type or pick a teacher" value="${esc(v.teacher)}" autocomplete="off"></div>`)}
           ${prop('hash', 'Periods / week', `<div class="stepper"><button data-action="pk-step" data-d="-1">${icon('minus', 'sm')}</button><span class="val" id="pk-periods">${esc(v.periods_per_week)}</span><button data-action="pk-step" data-d="1">${icon('plus', 'sm')}</button></div>`)}
+          ${prop('layers', 'Two together', `<div class="switch-row"><div class="switch ${v.double ? 'on' : ''}" data-action="pk-double"></div><span class="faint small">Periods come in back-to-back pairs on the same day</span></div>`)}
         </div>
         <div id="pk-warning"></div>
       </div>
@@ -616,12 +682,13 @@ function applyPeek() {
   if (!p) return;
   const v = Object.fromEntries(REQ_FIELDS.map((f) => [f, String(p.values[f] || '').trim()]));
   v.division = v.division.toUpperCase();
+  if (p.values.double || S.req.fieldnames.includes('double')) { ensureField('double'); v.double = p.values.double ? 'yes' : ''; }
   const missing = REQ_FIELDS.filter((f) => !v[f]).map((f) => f.replace(/_/g, ' '));
   if (missing.length) return toast('Fill in: ' + missing.join(', '));
   const n = Number(v.periods_per_week);
   if (!Number.isInteger(n) || n < 1 || n > 99) return toast('Periods per week must be 1–99.');
   const key = `${v.class}|${v.division}|${v.subject.toLowerCase()}|${v.teacher.toLowerCase()}`;
-  const dup = S.req.rows.findIndex((r, i) => i !== p.index && `${r.class}|${r.division}|${r.subject.toLowerCase()}|${r.teacher.toLowerCase()}` === key);
+  const dup = S.req.rows.findIndex((r, i) => i !== p.index && !isGroupRow(r) && `${r.class}|${r.division}|${r.subject.toLowerCase()}|${r.teacher.toLowerCase()}` === key);
   if (dup >= 0) return toast('That class, subject and teacher already has a row.', '⚠️');
   let index = p.index;
   if (index === null) {
@@ -653,6 +720,127 @@ async function deleteRow() {
   toast('Row deleted', '', { action: { label: 'Undo', run: () => { S.req.rows.splice(at, 0, removed); S.req.changed.add(at); setDirty(true); renderReqTable(); } } });
 }
 
+// ---- Group periods (Requirements → Groups)
+
+function renderGroups(host) {
+  const term = S.req.q.trim().toLowerCase();
+  const groups = reqGroups().filter((g) => (S.req.grade === 'All' || g.grade === S.req.grade)
+    && (S.req.division === 'All' || g.divisions.includes(S.req.division))
+    && (!term || `${g.name} ${g.activities.map((a) => `${a.subject} ${a.teacher}`).join(' ')}`.toLowerCase().includes(term)));
+  const capacity = S.settings.days.length * S.settings.periods_per_day;
+  const cards = groups.map((g) => `
+    <div class="grp-card" data-action="open-group" data-key="${esc(g.key)}">
+      <div class="grp-top"><span class="subj-pill b-${colorFor(g.name)}">${esc(g.name)}</span><span class="grow"></span>
+        ${g.double ? '<span class="tag c-blue">Two together</span>' : ''}<span class="tag">${plural(g.periods, 'period')} / week</span></div>
+      <div class="grp-classes"><span>Class ${esc(g.grade)}</span>${g.divisions.map((d) => `<span class="cls-chip div">${esc(d)}</span>`).join('')}
+        <span class="faint small">same time · ${capacity - g.periods} left for subjects</span></div>
+      <div class="grp-acts">${g.activities.map((a) => `<div class="grp-act"><span class="subj-pill b-${colorFor(a.subject)}">${esc(a.subject)}</span>
+        <span class="cellflex">${avatar(a.teacher)}<span>${esc(a.teacher)}</span></span></div>`).join('')}</div>
+    </div>`).join('');
+  host.innerHTML = `<div class="grp-wrap">
+    <div class="callout blue"><div class="ce">${icon('users')}</div><div class="cb"><div class="ct">Group periods</div>
+      A group period such as AMD splits into activities (music, karate, guitar…) that run at the same time. Choose the class,
+      the divisions that take it together and a teacher for each activity. Those teachers are kept free for it.</div></div>
+    ${groups.length ? `<div class="grp-grid">${cards}</div>` : `<div class="empty-state" style="height:auto;padding:36px"><div><h3>No groups${reqGroups().length ? ' match' : ' yet'}</h3>
+      <p>${reqGroups().length ? 'Try a different class, division or search.' : 'Add one for periods like AMD that split into activities.'}</p></div></div>`}
+    <div class="new-row" data-action="new-group">${icon('plus', 'sm')}New group</div>
+  </div>`;
+}
+
+function openGroupEditor(key) {
+  if (S.req.peek) closePeek();
+  const existing = key ? reqGroups().find((g) => g.key === key) : null;
+  const f = existing
+    ? { name: existing.name, grade: existing.grade, divisions: [...existing.divisions], periods: existing.periods || 2,
+        double: existing.double, activities: existing.activities.map((a) => ({ ...a })) }
+    : { name: '', grade: S.req.grade !== 'All' ? S.req.grade : '', divisions: [...S.boot.divisions], periods: 2, double: true,
+        activities: [{ subject: '', teacher: '' }, { subject: '', teacher: '' }] };
+  const teachers = [...new Set(S.req.rows.map((r) => r.teacher).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const m = modal(`<div class="modal-body"><h3>${existing ? 'Edit group' : 'New group'}</h3>
+      <p>The divisions you pick take this group at the same time, split into activities with their own teachers.</p>
+      <div id="grp-form"></div>
+      <datalist id="grp-teachers">${teachers.map((t) => `<option value="${esc(t)}">`).join('')}</datalist></div>
+    <div class="modal-foot">${existing ? `<button class="btn danger" data-x="delete">${icon('trash', 'sm')}Delete</button><span style="flex:1"></span>` : ''}
+      <button class="btn secondary" data-x="cancel">Cancel</button>
+      <button class="btn primary" data-x="save">${existing ? 'Save group' : 'Add group'}</button></div>`, { wide: true });
+  const capacity = S.settings.days.length * S.settings.periods_per_day;
+  const render = () => {
+    const pairCount = plural(Math.floor(f.periods / 2), 'pair');
+    const pairs = f.double ? (f.periods % 2 ? ` · ${f.periods > 1 ? `${pairCount} and ` : ''}1 single period` : ` · ${pairCount}`) : '';
+    $('#grp-form', m.el).innerHTML = `
+      <div class="gf"><label class="gf-l" for="g-name">Group name</label><input class="input" id="g-name" placeholder="e.g. AMD" value="${esc(f.name)}" autocomplete="off"></div>
+      <div class="gf"><div class="gf-l">Class</div><div class="gf-pills">${S.boot.classes.map((g) => `<button class="grade-pill ${f.grade === g ? 'on' : ''}" data-x="grade" data-v="${g}">${g}</button>`).join('')}</div></div>
+      <div class="gf"><div class="gf-l">Divisions at the same time</div><div class="gf-pills">${S.boot.divisions.map((d) => `<button class="grade-pill ${f.divisions.includes(d) ? 'on' : ''}" data-x="div" data-v="${d}">${f.grade ? esc(f.grade) + '-' : ''}${d}</button>`).join('')}</div></div>
+      <div class="gf gf-inline">
+        <div><div class="gf-l">Periods per week</div><div class="stepper"><button data-x="pd" data-d="-1">${icon('minus', 'sm')}</button><span class="val">${f.periods}</span><button data-x="pd" data-d="1">${icon('plus', 'sm')}</button></div></div>
+        <div><div class="gf-l">Two periods together</div><div class="switch-row"><div class="switch ${f.double ? 'on' : ''}" data-x="double"></div><span class="faint small">${f.double ? 'Back-to-back on the same day' : 'Off'}${pairs}</span></div></div>
+      </div>
+      <div class="gf"><div class="gf-l">Activities and teachers</div>
+        ${f.activities.map((a, i) => `<div class="gf-act">
+          <input class="input" data-a="subject" data-i="${i}" placeholder="Activity, e.g. Music" value="${esc(a.subject)}" autocomplete="off">
+          <input class="input" data-a="teacher" data-i="${i}" list="grp-teachers" placeholder="Teacher" value="${esc(a.teacher)}" autocomplete="off">
+          <button class="btn ghost icon" data-x="rm" data-i="${i}" title="Remove activity" ${f.activities.length < 2 ? 'disabled' : ''}>${icon('x', 'sm')}</button></div>`).join('')}
+        <button class="btn ghost sm" data-x="add">${icon('plus', 'sm')}Add activity</button></div>
+      <p class="faint small">${f.grade && f.divisions.length ? `${f.divisions.map((d) => `${f.grade}-${d}`).join(', ')} each keep ${capacity - f.periods} of ${capacity} periods for their other subjects.` : 'Pick a class and its divisions.'}</p>`;
+  };
+  m.el.addEventListener('input', (e) => {
+    const el = e.target;
+    if (el.id === 'g-name') f.name = el.value;
+    else if (el.dataset.a) f.activities[Number(el.dataset.i)][el.dataset.a] = el.value;
+  });
+  m.el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-x]');
+    if (!b || b.disabled) return;
+    const x = b.dataset.x;
+    if (x === 'cancel') return m.close();
+    if (x === 'save') return saveGroup();
+    if (x === 'delete') return deleteGroup();
+    if (x === 'grade') f.grade = b.dataset.v;
+    else if (x === 'div') f.divisions = f.divisions.includes(b.dataset.v) ? f.divisions.filter((d) => d !== b.dataset.v) : [...f.divisions, b.dataset.v].sort();
+    else if (x === 'pd') f.periods = Math.max(1, Math.min(capacity, f.periods + Number(b.dataset.d)));
+    else if (x === 'double') f.double = !f.double;
+    else if (x === 'add') f.activities.push({ subject: '', teacher: '' });
+    else if (x === 'rm') f.activities.splice(Number(b.dataset.i), 1);
+    render();
+    if (x === 'add') $$('[data-a="subject"]', m.el).pop()?.focus();
+  });
+  const saveGroup = () => {
+    const name = f.name.trim();
+    const acts = f.activities.map((a) => ({ subject: a.subject.trim(), teacher: a.teacher.trim() })).filter((a) => a.subject || a.teacher);
+    if (!name) return toast('Give the group a name, e.g. AMD.');
+    if (!f.grade) return toast('Choose the class.');
+    if (!f.divisions.length) return toast('Choose at least one division.');
+    if (!acts.length) return toast('Add at least one activity with its teacher.');
+    if (acts.some((a) => !a.subject || !a.teacher)) return toast('Every activity needs a name and a teacher.');
+    if (new Set(acts.map((a) => a.subject.toLowerCase())).size !== acts.length) return toast('Each activity name can be used once.');
+    const newKey = `${f.grade}|${name.toLowerCase()}`;
+    if (newKey !== key && reqGroups().some((g) => g.key === newKey)) return toast(`Class ${f.grade} already has a group called ${name}.`);
+    ensureField('group');
+    ensureField('double');
+    const rows = [];
+    f.divisions.forEach((division) => acts.forEach((a) => {
+      rows.push(Object.assign(Object.fromEntries(S.req.fieldnames.map((n) => [n, ''])), {
+        class: f.grade, division, subject: a.subject, teacher: a.teacher, periods_per_week: String(f.periods),
+        group: name, double: f.double ? 'yes' : '' }));
+    }));
+    replaceRows(existing ? existing.indexes : [], rows);
+    m.close();
+    setDirty(true);
+    renderReqTable();
+    toast(`${existing ? 'Updated' : 'Added'} ${name} for ${f.divisions.map((d) => `${f.grade}-${d}`).join(', ')}. Press Save to keep it.`);
+  };
+  const deleteGroup = async () => {
+    if (!(await confirmDialog({ title: `Delete ${existing.name}?`, text: `Class ${existing.grade} · ${existing.divisions.join(', ')}\nThe file changes when you press Save.`, confirm: 'Delete', danger: true }))) return;
+    replaceRows(existing.indexes, []);
+    m.close();
+    setDirty(true);
+    renderReqTable();
+    toast(`${existing.name} deleted`);
+  };
+  render();
+  if (!existing) setTimeout(() => $('#g-name', m.el)?.focus(), 30);
+}
+
 async function saveRequirements() {
   if (!S.req.dirty) return true;
   try {
@@ -671,7 +859,8 @@ async function checkRequirements() {
   button.classList.add('loading'); button.innerHTML = '<span class="spinner"></span>Checking…';
   try {
     const r = await call('check_requirements', S.req.fieldnames, S.req.rows);
-    infoDialog({ title: 'Data looks good', text: `Valid for ${S.settings.days.length} days × ${S.settings.periods_per_day} periods.\n\n${r.lessons} lessons to schedule · ${r.teachers} teachers · ${r.adjusted_divisions} divisions with automatic repeat adjustments.` });
+    const groups = r.groups ? ` · ${plural(r.groups, 'group')} (${r.group_periods} periods)` : '';
+    infoDialog({ title: 'Data looks good', text: `Valid for ${S.settings.days.length} days × ${S.settings.periods_per_day} periods.\n\n${r.lessons} lessons to schedule${groups} · ${r.teachers} teachers · ${r.adjusted_divisions} divisions with automatic repeat adjustments.` });
   } catch (error) {
     infoDialog({ title: 'Data needs attention', text: error.message, tone: 'yellow' });
   } finally {
@@ -971,7 +1160,9 @@ function renderTtView(flash) {
     const subject = isClass ? parts[0] : (parts[1] || '');
     counts.set(subject, (counts.get(subject) || 0) + 1);
   });
-  const classesTaught = isClass ? [] : [...new Set(grid.cells.flat().filter((c) => c.trim()).map((c) => c.split('\n')[0]))].sort();
+  // A group period lists several classes on a teacher's sheet, e.g. "6-A, 6-B".
+  const classesTaught = isClass ? [] : [...new Set(grid.cells.flat().filter((c) => c.trim()).flatMap((c) => c.split('\n')[0].split(/,\s*/)))]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   const title = isClass ? `Class ${grid.label}` : grid.label;
   const meta = isClass
     ? `${lessons} of ${slots} periods · ${plural(counts.size, 'subject')}<span class="faint">· Click a period to change it</span>`
@@ -986,11 +1177,15 @@ function renderTtView(flash) {
       const parts = value.split('\n');
       const first = (parts[0] || '').trim();
       const second = (parts[1] || '').trim();
-      const subject = isClass ? first : second;
-      const attrs = isClass ? `data-action="edit-lesson" data-d="${d}" data-p="${pi}"` : (value.trim() ? `data-action="open-class" data-sheet="${esc(first)}"` : '');
+      const group = isClass ? second.startsWith('Group:') : first.includes(',');
+      const subject = isClass ? first : (group ? second.split(':')[0] : second);
+      const attrs = isClass
+        ? (group ? `data-action="group-info" data-cell="${esc(value)}"` : `data-action="edit-lesson" data-d="${d}" data-p="${pi}"`)
+        : (value.trim() ? `data-action="open-class" data-sheet="${esc(first.split(/,\s*/)[0])}"` : '');
+      const shown = isClass && group ? second.replace(/^Group:\s*/, '') : second;
       const flashCls = flash && flash[0] === d && flash[1] === pi ? 'flash' : '';
       cells += `<div class="wc ${isClass || value.trim() ? 'editable' : ''} ${flashCls}" ${attrs}>${value.trim()
-        ? `<div class="lesson b-${colorFor(subject)}"><span class="ls">${esc(first)}</span><span class="lt">${esc(second)}</span></div>`
+        ? `<div class="lesson ${group ? 'grp' : ''} b-${colorFor(subject)}"><span class="ls">${group && isClass ? icon('users', 'sm') : ''}${esc(first)}</span><span class="lt">${esc(shown)}</span></div>`
         : `<div class="free">${isClass ? '+' : ''}</div>`}</div>`;
     });
   });
@@ -1262,7 +1457,15 @@ const ACTIONS = {
   'grade-pill': (el) => { S.req.grade = el.dataset.v; renderFilters(); renderReqTable(); $('#req-scroll').scrollTop = 0; },
   'filter-div': (el) => openMenu(el, [{ label: 'All divisions', value: 'All', checked: S.req.division === 'All' }, { sep: true }, ...S.boot.divisions.map((d) => ({ label: `Division ${d}`, value: d, checked: S.req.division === d }))], (v) => { S.req.division = v; renderFilters(); renderReqTable(); }),
   'open-row': (el) => openPeek(Number(el.dataset.i)),
-  'new-row': () => openPeek(null, { class: S.req.grade !== 'All' ? S.req.grade : '', division: S.req.division !== 'All' ? S.req.division : '' }),
+  'new-row': () => (S.req.view === 'groups' ? openGroupEditor(null)
+    : openPeek(null, { class: S.req.grade !== 'All' ? S.req.grade : '', division: S.req.division !== 'All' ? S.req.division : '' })),
+  'new-group': () => openGroupEditor(null),
+  'open-group': (el) => openGroupEditor(el.dataset.key),
+  'pk-double': (el) => { S.req.peek.values.double = !S.req.peek.values.double; el.classList.toggle('on', S.req.peek.values.double); },
+  'group-info': (el) => {
+    const [name, line] = el.dataset.cell.split('\n');
+    infoDialog({ title: `${name} · group period`, text: `Activities: ${line.replace(/^Group:\s*/, '')}.\n\nEvery division in the group has ${name} at this time, and each activity teacher is kept free for it. To change it, edit the group on Requirements → Groups and generate again.` });
+  },
   'close-peek': closePeek,
   'peek-step': (el) => {
     const list = visibleRows();

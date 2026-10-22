@@ -34,6 +34,14 @@ AMBER = "#CB912F"
 AMBER_PALE = "#FBF3DB"
 CLASS_RE = re.compile(r"^\d{1,2}-[A-D]$", re.I)
 TEACHER_RE = re.compile(r"^T\d{3,}$", re.I)
+GROUP_MARK = "Group:"  # same marker as school_timetable_generator.GROUP_MARK
+
+
+# Explain why a group period can't be edited like a single lesson.
+def group_period_message(value):
+    name = str(value or "").split("\n", 1)[0].strip() or "This group"
+    return (name + " is a group period shared by its divisions and activity teachers, so it can't be changed "
+            "here. Edit the group on the Requirements page and generate again.")
 
 
 # Provide a GUI for editing timetable cells while keeping linked workbook sheets consistent.
@@ -168,13 +176,24 @@ class ExcelTimetableEditor:
             return str(int(value))
         return str(value)
 
-    # Separate a timetable cell into its subject and teacher/class lines.
+    # Separate a timetable cell into its subject and teacher/class lines. A group
+    # period (e.g. "AMD\nGroup: Music, Karate") is not a single lesson, so it reads
+    # as ("", ""); use _is_group_cell to tell it apart from an empty period.
     @staticmethod
     def _split_lesson(value):
         if not value:
             return "", ""
         parts = str(value).split("\n", 1)
-        return parts[0].strip(), parts[1].strip() if len(parts) > 1 else ""
+        second = parts[1].strip() if len(parts) > 1 else ""
+        if second.startswith(GROUP_MARK):
+            return "", ""
+        return parts[0].strip(), second
+
+    # Check whether a class cell holds a shared group period.
+    @staticmethod
+    def _is_group_cell(value):
+        parts = str(value or "").split("\n", 1)
+        return len(parts) > 1 and parts[1].strip().startswith(GROUP_MARK)
 
     # Check whether a worksheet name follows the grade-division format.
     @staticmethod
@@ -809,6 +828,8 @@ class ExcelTimetableEditor:
     def _apply_lesson_change(self, class_name, row_number, col_number, subject, teacher):
         class_sheet = self.workbook[class_name]
         cell = class_sheet.cell(row_number, col_number)
+        if self._is_group_cell(cell.value):
+            raise ValueError(group_period_message(self._display_value(cell.value)))
         old_subject, old_teacher = self._split_lesson(self._display_value(cell.value))
         subject, teacher = subject.strip(), teacher.strip()
         if subject and teacher:

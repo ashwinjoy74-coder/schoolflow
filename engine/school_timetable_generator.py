@@ -41,6 +41,17 @@ _RUN_LOCK = threading.Lock()
 # Holds a record of any subject counts that were changed to fill the selected week.
 PERIOD_ADJUSTMENTS = []
 
+# Group periods such as AMD: rows with a "group" value. All divisions in a group take
+# it at the same time, split into activities (Music, Karate, ...) with their own teachers.
+GROUPS = []
+# The slot chosen for every group period, as (group, slot) pairs.
+GROUP_SLOTS = []
+# Requirement row numbers marked "double": their periods come in back-to-back pairs.
+DOUBLE_ROWS = set()
+# Second line of a class cell that holds a group period, e.g. "AMD\nGroup: Music, Karate".
+GROUP_MARK = "Group:"
+YES_VALUES = {"yes", "y", "true", "1", "x"}
+
 
 # Divide extra periods proportionally and distribute rounding leftovers fairly.
 def spread_periods(amount, weights):
@@ -71,10 +82,13 @@ def spread_periods(amount, weights):
 
 # Read and validate requirements.csv, then balance each division to the selected week capacity.
 def read_data():
-    global PERIOD_ADJUSTMENTS
+    global PERIOD_ADJUSTMENTS, GROUPS, DOUBLE_ROWS
     requirements = []
     lessons = []
+    group_rows = []
     PERIOD_ADJUSTMENTS = []
+    GROUPS = []
+    DOUBLE_ROWS = set()
 
     if not os.path.exists(INPUT_FILE):
         raise ValueError("requirements.csv was not found. Put it in the Requirements folder.")
@@ -113,10 +127,19 @@ def read_data():
             if periods < 1:
                 raise ValueError("Row " + str(row_number) + ": periods_per_week must be at least 1.")
 
+            group_name = (row.get("group") or "").strip()
+            double = (row.get("double") or "").strip().casefold() in YES_VALUES
+            if group_name:
+                group_rows.append((grade, division, subject, teacher, periods, group_name, double, row_number))
+                continue
+            if double:
+                DOUBLE_ROWS.add(len(requirements))
             requirements.append([grade, division, subject, teacher, periods])
 
     if not requirements:
         raise ValueError("The CSV has no subjects yet. Fill in the subject, teacher and weekly periods.")
+    if (DOUBLE_ROWS or any(item[6] for item in group_rows)) and PERIODS_PER_DAY < 2:
+        raise ValueError("'Two periods together' needs at least 2 periods per day.")
 
     # A teacher must be assigned to exactly one subject throughout the school.
     teacher_subjects = {}
@@ -142,6 +165,51 @@ def read_data():
     for row in requirements:
         row[3] = teacher_display_names[row[3].strip().casefold()]
 
+    # Collect group rows into groups: one per grade and group name. Group teachers may
+    # also teach a normal subject; the one-subject rule above covers normal rows only.
+    groups_by_key = {}
+    for grade, division, subject, teacher, periods, name, double, row_number in group_rows:
+        teacher = teacher_display_names.setdefault(teacher.casefold(), teacher)
+        group = groups_by_key.setdefault((grade, name.casefold()), {
+            "name": name, "grade": grade, "divisions": [], "activities": [], "periods": periods, "double": False,
+        })
+        if periods != group["periods"]:
+            raise ValueError("Row " + str(row_number) + ": every row of group " + group["name"] + " in class "
+                             + str(grade) + " must have the same periods_per_week (" + str(group["periods"]) + ").")
+        group["double"] = group["double"] or double
+        if division not in group["divisions"]:
+            group["divisions"].append(division)
+        if (subject.casefold(), teacher.casefold()) not in [(s.casefold(), t.casefold()) for s, t in group["activities"]]:
+            group["activities"].append((subject, teacher))
+    for group in sorted(groups_by_key.values(), key=lambda item: (item["grade"], item["name"].casefold())):
+        group["divisions"].sort(key=DIVISIONS.index)
+        group["classes"] = [str(group["grade"]) + "-" + division for division in group["divisions"]]
+        group["teachers"] = sorted({teacher for _subject, teacher in group["activities"]}, key=str.casefold)
+        GROUPS.append(group)
+
+    slots_per_week = len(DAYS) * PERIODS_PER_DAY
+
+    # Group periods take fixed slots, so each division has fewer left for its subjects.
+    group_periods_by_class = {}
+    group_load = {}
+    for group in GROUPS:
+        for class_name in group["classes"]:
+            group_periods_by_class[class_name] = group_periods_by_class.get(class_name, 0) + group["periods"]
+        for teacher in group["teachers"]:
+            group_load[teacher] = group_load.get(teacher, 0) + group["periods"]
+    for class_name, count in sorted(group_periods_by_class.items()):
+        if count > slots_per_week:
+            raise ValueError("Class " + class_name + " has " + str(count) + " group periods, but the selected week has only "
+                             + str(slots_per_week) + " periods.")
+    for teacher, count in sorted(group_load.items()):
+        if count > slots_per_week:
+            raise ValueError(teacher + " is needed for " + str(count) + " group periods, but the selected week has only "
+                             + str(slots_per_week) + " periods.")
+    capacity_by_class = {
+        str(grade) + "-" + division: slots_per_week - group_periods_by_class.get(str(grade) + "-" + division, 0)
+        for grade in CLASSES for division in DIVISIONS
+    }
+
     # Group input rows by division so that weekly periods can be adjusted together.
     rows_by_class = {}
     for row_index, row in enumerate(requirements):
@@ -151,18 +219,16 @@ def read_data():
             rows_by_class[class_name] = []
         rows_by_class[class_name].append(row_index)
 
-    # Every division must have at least one subject row.
+    # Every division must have at least one subject row (unless groups fill its whole week).
     missing_classes = []
     for grade in CLASSES:
         for division in DIVISIONS:
             class_name = str(grade) + "-" + division
-            if class_name not in rows_by_class:
+            if class_name not in rows_by_class and capacity_by_class[class_name] > 0:
                 missing_classes.append(class_name)
 
     if missing_classes:
         raise ValueError("Add subject information for these divisions: " + ", ".join(missing_classes))
-
-    slots_per_week = len(DAYS) * PERIODS_PER_DAY
 
     # First choose a fair, per-division subject distribution for the selected week.
     # Short weeks can otherwise overload a teacher who teaches the same subject
@@ -174,20 +240,23 @@ def read_data():
         current_counts = [original_counts[index] for index in row_indexes]
         current_total = sum(current_counts)
         subject_count = len(row_indexes)
+        capacity = capacity_by_class[class_name]
 
-        if slots_per_week < subject_count:
+        if capacity < subject_count:
+            group_note = (" after " + str(slots_per_week - capacity) + " group periods"
+                          if capacity < slots_per_week else "")
             raise ValueError(
                 class_name + " has " + str(subject_count) + " subject rows, but the selected week has only "
-                + str(slots_per_week) + " periods. Each subject needs at least one period to be included. "
+                + str(capacity) + " periods" + group_note + ". Each subject needs at least one period to be included. "
                 + "Select more periods per day or more school days."
             )
 
-        if current_total < slots_per_week:
-            extra_periods = slots_per_week - current_total
+        if current_total < capacity:
+            extra_periods = capacity - current_total
             extra_by_subject = spread_periods(extra_periods, current_counts)
             new_counts = [current_counts[i] + extra_by_subject[i] for i in range(subject_count)]
-        elif current_total > slots_per_week:
-            periods_to_share = slots_per_week - subject_count
+        elif current_total > capacity:
+            periods_to_share = capacity - subject_count
             weights = [max(count - 1, 0) for count in current_counts]
             extra_by_subject = spread_periods(periods_to_share, weights)
             new_counts = [1 + extra_by_subject[i] for i in range(subject_count)]
@@ -200,7 +269,7 @@ def read_data():
     # A teacher needs at least one slot for each class/division assignment.
     # If even this minimum is too large for the selected week, no clash-free
     # solution can exist without changing assignments or increasing capacity.
-    teacher_minimum_load = {}
+    teacher_minimum_load = dict(group_load)
     for row in requirements:
         teacher_minimum_load[row[3]] = teacher_minimum_load.get(row[3], 0) + 1
 
@@ -226,7 +295,7 @@ def read_data():
     # Keep each class full, while moving extra repeats away from teachers whose
     # weekly workload exceeds the available slots. A moved period stays in the
     # same class and is assigned to another subject teacher who has free capacity.
-    teacher_load = {}
+    teacher_load = dict(group_load)
     for row_index, row in enumerate(requirements):
         teacher = row[3]
         teacher_load[teacher] = teacher_load.get(teacher, 0) + adjusted_counts[row_index]
@@ -301,19 +370,23 @@ def read_data():
             })
         requirements[row_index][4] = new_count
 
-    # Create one lesson entry for every adjusted weekly period.
+    # Create one lesson entry for every adjusted weekly period. In a "double" row every
+    # second lesson "follows" the one before it, i.e. comes straight after it.
     lessons = []
-    for grade, division, subject, teacher, periods in requirements:
+    for row_index, (grade, division, subject, teacher, periods) in enumerate(requirements):
         class_name = str(grade) + "-" + division
         for number in range(periods):
-            lessons.append({
+            lesson = {
                 "class_name": class_name,
                 "subject": subject,
                 "teacher": teacher,
-            })
+            }
+            if row_index in DOUBLE_ROWS and number % 2 == 1:
+                lesson["follows"] = len(lessons) - 1
+            lessons.append(lesson)
 
     # Final validation: every teacher must fit into the selected week's slots.
-    final_teacher_load = {}
+    final_teacher_load = dict(group_load)
     for lesson in lessons:
         teacher = lesson["teacher"]
         final_teacher_load[teacher] = final_teacher_load.get(teacher, 0) + 1
@@ -335,6 +408,7 @@ def make_timetable(lessons):
     if cp_model is None:
         raise RuntimeError("OR-Tools is not installed. Install it with: python -m pip install -r requirements.txt")
 
+    global GROUP_SLOTS
     total_slots = len(DAYS) * PERIODS_PER_DAY
     model = cp_model.CpModel()
     choices = []
@@ -347,32 +421,54 @@ def make_timetable(lessons):
         model.AddExactlyOne(lesson_choices)
         choices.append(lesson_choices)
 
-    # Collect lesson numbers for each class and each teacher.
+    # Each group period is one choice shared by all of the group's divisions and teachers.
+    sessions = [(group, number) for group in GROUPS for number in range(group["periods"])]
+    session_choices = []
+    for session_number in range(len(sessions)):
+        options = [model.NewBoolVar("group_" + str(session_number) + "_slot_" + str(slot)) for slot in range(total_slots)]
+        model.AddExactlyOne(options)
+        session_choices.append(options)
+
+    # Collect the choices that use each class and each teacher.
     class_lessons = {}
     teacher_lessons = {}
 
     for lesson_number, lesson in enumerate(lessons):
-        class_name = lesson["class_name"]
-        teacher = lesson["teacher"]
-
-        if class_name not in class_lessons:
-            class_lessons[class_name] = []
-        class_lessons[class_name].append(lesson_number)
-
-        if teacher not in teacher_lessons:
-            teacher_lessons[teacher] = []
-        teacher_lessons[teacher].append(lesson_number)
+        class_lessons.setdefault(lesson["class_name"], []).append(choices[lesson_number])
+        teacher_lessons.setdefault(lesson["teacher"], []).append(choices[lesson_number])
+    for session_number, (group, _number) in enumerate(sessions):
+        for class_name in group["classes"]:
+            class_lessons.setdefault(class_name, []).append(session_choices[session_number])
+        for teacher in group["teachers"]:
+            teacher_lessons.setdefault(teacher, []).append(session_choices[session_number])
 
     # Every class must have exactly one lesson in every period.
     # This prevents free periods in student/class timetables.
     for class_name in class_lessons:
         for slot in range(total_slots):
-            model.AddExactlyOne(choices[number][slot] for number in class_lessons[class_name])
+            model.AddExactlyOne(options[slot] for options in class_lessons[class_name])
 
     # A teacher can only teach one class in a period.
     for teacher in teacher_lessons:
         for slot in range(total_slots):
-            model.AddAtMostOne(choices[number][slot] for number in teacher_lessons[teacher])
+            model.AddAtMostOne(options[slot] for options in teacher_lessons[teacher])
+
+    # "Two periods together": the second of a pair sits in the next period of the same day.
+    def keep_together(first, second):
+        for slot in range(total_slots):
+            if slot % PERIODS_PER_DAY == PERIODS_PER_DAY - 1:
+                model.Add(first[slot] == 0)
+            else:
+                model.Add(second[slot + 1] == first[slot])
+            if slot % PERIODS_PER_DAY == 0:
+                model.Add(second[slot] == 0)
+
+    for lesson_number, lesson in enumerate(lessons):
+        if "follows" in lesson:
+            keep_together(choices[lesson["follows"]], choices[lesson_number])
+    for session_number, (group, number) in enumerate(sessions):
+        if group["double"] and number % 2 == 1:
+            keep_together(session_choices[session_number - 1], session_choices[session_number])
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = SOLVER_TIME_LIMIT
@@ -380,16 +476,15 @@ def make_timetable(lessons):
     result = solver.Solve(model)
 
     if result != cp_model.OPTIMAL and result != cp_model.FEASIBLE:
-        raise RuntimeError("A timetable could not be made with these requirements. Check the teacher assignments and weekly periods.")
+        raise RuntimeError("A timetable could not be made with these requirements. Check the teacher assignments, "
+                           "weekly periods, groups and 'two periods together' settings.")
 
-    # Save the chosen period number for every lesson.
-    chosen_slots = []
-    for lesson_number in range(len(lessons)):
-        for slot in range(total_slots):
-            if solver.Value(choices[lesson_number][slot]) == 1:
-                chosen_slots.append(slot)
-                break
+    def chosen(options):
+        return next(slot for slot in range(total_slots) if solver.Value(options[slot]) == 1)
 
+    # Save the chosen period number for every lesson and group period.
+    chosen_slots = [chosen(options) for options in choices]
+    GROUP_SLOTS = [(group, chosen(session_choices[number])) for number, (group, _n) in enumerate(sessions)]
     return chosen_slots
 
 
@@ -414,6 +509,12 @@ def save_excel(requirements, lessons, chosen_slots):
                 + existing_subject + " and " + lesson["subject"] + "."
             )
         teacher_subject_map[lesson["teacher"]] = lesson["subject"]
+    # Teachers who only take group activities are listed as e.g. "AMD: Music".
+    for group in GROUPS:
+        for subject, teacher in group["activities"]:
+            if teacher not in teacher_names:
+                teacher_names.append(teacher)
+            teacher_subject_map.setdefault(teacher, group["name"] + ": " + subject)
     teacher_names.sort()
 
     # Timetable sizes use the selected number of days and periods.
@@ -442,6 +543,23 @@ def save_excel(requirements, lessons, chosen_slots):
 
         class_tables[class_name][day_number][period_number] = lesson["subject"] + "\n" + teacher
         teacher_tables[teacher][day_number][period_number] = class_name + "\n" + lesson["subject"]
+
+    # Group periods: every division shows the group and its activities; every activity
+    # teacher shows the divisions and the activity they take.
+    for group, slot in GROUP_SLOTS:
+        day_number = slot // PERIODS_PER_DAY
+        period_number = slot % PERIODS_PER_DAY
+        class_text = group["name"] + "\n" + GROUP_MARK + " " + ", ".join(subject for subject, _t in group["activities"])
+        for class_name in group["classes"]:
+            if class_tables[class_name][day_number][period_number] != "":
+                raise RuntimeError("A class clash was found while creating the Excel file.")
+            class_tables[class_name][day_number][period_number] = class_text
+        for teacher in group["teachers"]:
+            if teacher_tables[teacher][day_number][period_number] != "":
+                raise RuntimeError("A teacher clash was found while creating the Excel file.")
+            subjects = " / ".join(subject for subject, name in group["activities"] if name == teacher)
+            teacher_tables[teacher][day_number][period_number] = (", ".join(group["classes"]) + "\n"
+                                                                  + group["name"] + ": " + subjects)
 
     # Double-check that every class period has been filled before saving.
     for class_name in class_names:
@@ -472,21 +590,36 @@ def save_excel(requirements, lessons, chosen_slots):
     summary.append(["Teacher workbook sheets", "Each teacher has one combined timetable sheet listing all classes they teach."])
     summary.append(["Automatic subject repeats", "Adjusted to fill the selected weekly capacity where needed."])
     summary.append(["Changed subject rows", len(PERIOD_ADJUSTMENTS)])
+    summary.append(["Group periods", sum(group["periods"] for group in GROUPS)])
     summary.column_dimensions["A"].width = 28
     summary.column_dimensions["B"].width = 65
 
     # Include the input data in the workbook too.
     data_sheet = workbook.create_sheet("Requirements")
-    data_sheet.append(["class", "division", "subject", "teacher", "periods_per_week"])
-    for row in requirements:
-        data_sheet.append(row)
+    data_sheet.append(["class", "division", "subject", "teacher", "periods_per_week", "double"])
+    for row_index, row in enumerate(requirements):
+        data_sheet.append(row + ["yes" if row_index in DOUBLE_ROWS else ""])
 
     for cell in data_sheet[1]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="244062")
 
-    for column, width in zip(["A", "B", "C", "D", "E"], [12, 12, 24, 28, 20]):
+    for column, width in zip(["A", "B", "C", "D", "E", "F"], [12, 12, 24, 28, 20, 10]):
         data_sheet.column_dimensions[column].width = width
+
+    # Group periods are listed on their own sheet, one row per activity.
+    if GROUPS:
+        group_sheet = workbook.create_sheet("Groups")
+        group_sheet.append(["Group", "Class", "Divisions", "Activity", "Teacher", "Periods per week", "Two periods together"])
+        for group in GROUPS:
+            for subject, teacher in group["activities"]:
+                group_sheet.append([group["name"], group["grade"], ", ".join(group["divisions"]), subject, teacher,
+                                    group["periods"], "yes" if group["double"] else ""])
+        for cell in group_sheet[1]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="244062")
+        for column, width in zip("ABCDEFG", [16, 8, 14, 22, 28, 16, 20]):
+            group_sheet.column_dimensions[column].width = width
 
     # Keep a clear record of any automatic repeat changes made for this timetable.
     if PERIOD_ADJUSTMENTS:
@@ -592,8 +725,10 @@ def check_requirements(input_file, days, periods_per_day):
         return {
             "rows": len(requirements),
             "lessons": len(lessons),
-            "teachers": len(set(lesson["teacher"] for lesson in lessons)),
+            "teachers": len(set(lesson["teacher"] for lesson in lessons) | set(t for g in GROUPS for t in g["teachers"])),
             "adjusted_divisions": len(set(item["class_name"] for item in PERIOD_ADJUSTMENTS)),
+            "groups": len(GROUPS),
+            "group_periods": sum(group["periods"] for group in GROUPS),
         }
 
 
@@ -608,7 +743,8 @@ def generate(input_file, output_file, days, periods_per_day, time_limit=None, lo
         if adjusted_classes:
             log("Adjusted subject repeats for " + str(len(adjusted_classes)) + " divisions to fill "
                 + str(len(DAYS) * PERIODS_PER_DAY) + " weekly periods each.")
-        log("Input checked. Scheduling " + str(len(lessons)) + " lessons (up to "
+        group_note = (" and " + str(sum(group["periods"] for group in GROUPS)) + " group periods" if GROUPS else "")
+        log("Input checked. Scheduling " + str(len(lessons)) + " lessons" + group_note + " (up to "
             + str(SOLVER_TIME_LIMIT) + " s)…")
         chosen_slots = make_timetable(lessons)
         log("Schedule found. Writing the Excel workbook…")
@@ -616,7 +752,8 @@ def generate(input_file, output_file, days, periods_per_day, time_limit=None, lo
         return {
             "output": OUTPUT_FILE,
             "lessons": len(lessons),
-            "teachers": len(set(lesson["teacher"] for lesson in lessons)),
+            "groups": len(GROUPS),
+            "teachers": len(set(lesson["teacher"] for lesson in lessons) | set(t for g in GROUPS for t in g["teachers"])),
             "divisions": len(CLASSES) * len(DIVISIONS),
             "adjusted_divisions": len(adjusted_classes),
             "weekly_periods": len(DAYS) * PERIODS_PER_DAY,

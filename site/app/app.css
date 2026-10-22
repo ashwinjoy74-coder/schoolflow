@@ -879,6 +879,38 @@ tr.group td .gname { font-size: 15.5px; }
   .set-row2 { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* ------------------------------------------------------------ Group periods */
+
+.pcell .dbl { height: 22px; padding: 0 7px; font-size: 12.5px; font-weight: 600; }
+.switch-row { display: flex; align-items: center; gap: 10px; min-height: 36px; }
+.grp-wrap { display: grid; gap: 16px; padding-top: 16px; }
+.grp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 14px; }
+.grp-card {
+  border: 1px solid var(--border); border-radius: 14px; background: var(--bg); box-shadow: var(--shadow-card);
+  padding: 16px 18px; display: grid; gap: 12px; cursor: pointer; transition: border-color 100ms, transform 100ms;
+}
+.grp-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.grp-top { display: flex; align-items: center; gap: 8px; }
+.grp-top .grow { flex: 1; }
+.grp-top .subj-pill { font-size: 16px; }
+.grp-classes { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-weight: 600; color: var(--text-2); }
+.grp-classes .faint { font-weight: 400; margin-left: 4px; }
+.grp-acts { display: grid; gap: 8px; border-top: 1px solid var(--border); padding-top: 12px; }
+.grp-act { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.grp-act .cellflex { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text-2); }
+.grp-act .cellflex > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.gf { margin-top: 16px; }
+.gf-l { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+.gf-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.gf-inline { display: flex; flex-wrap: wrap; gap: 16px 32px; }
+.gf-act { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 32px; gap: 8px; margin-bottom: 8px; align-items: center; }
+.gf-act .input, .gf .input { height: 36px; }
+
+/* A group period in a class timetable: dashed edge, people icon before the name. */
+.lesson.grp { border-left-style: dashed; }
+.lesson.grp .ls { display: flex; align-items: center; gap: 5px; }
+
 /* ------------------------------------------------------------ Tablet and phone layouts */
 
 .menu-btn { display: none; }
@@ -940,6 +972,12 @@ tr.group td .gname { font-size: 15.5px; }
   }
   .tt-view { flex: 1; padding: 16px; }
   .tt-head h2 { font-size: 22px; }
+
+  .grp-wrap { padding-top: 10px; }
+  .gf-act { grid-template-columns: minmax(0, 1fr) 32px; }
+  .gf-act { margin-bottom: 14px; }
+  .gf-act [data-a="teacher"] { grid-column: 1; }
+  .gf-act [data-x="rm"] { grid-column: 2; grid-row: 1; }
 
   /* Dialogs use nearly the whole visible screen. */
   .modal { margin-top: 12px; max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); max-width: calc(100vw - 24px); }

@@ -96,12 +96,17 @@ class Api:
         path = self._settings["input_path"]
         if os.path.isfile(path):
             rows, divisions, periods = 0, set(), 0
-            subjects, teachers = set(), set()
+            subjects, teachers, groups = set(), set(), set()
             with open(path, "r", newline="", encoding="utf-8-sig") as file:
                 for row in csv.DictReader(file):
                     subject = (row.get("subject") or "").strip()
                     teacher = (row.get("teacher") or "").strip()
                     if not subject and not teacher:
+                        continue
+                    group = (row.get("group") or "").strip()
+                    if group:  # group activity rows are counted as groups, not subject rows
+                        groups.add(((row.get("class") or "").strip(), group.casefold()))
+                        teachers.add(teacher.casefold())
                         continue
                     rows += 1
                     divisions.add((row.get("class") or "").strip() + "-" + (row.get("division") or "").strip().upper())
@@ -113,7 +118,7 @@ class Api:
                     subjects.add(subject.casefold())
                     teachers.add(teacher.casefold())
             result["requirements"] = {"rows": rows, "divisions": len(divisions), "teachers": len(teachers),
-                                      "subjects": len(subjects), "periods": periods}
+                                      "subjects": len(subjects), "periods": periods, "groups": len(groups)}
         output = self._settings["output_path"]
         if os.path.isfile(output):
             result["workbook"] = {"path": output, "modified": os.path.getmtime(output)}

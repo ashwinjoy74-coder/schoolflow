@@ -11,7 +11,8 @@ import threading
 from openpyxl import load_workbook
 
 from school_timetable_excel_editor import (
-    CLASS_RE, ExcelTimetableEditor, _split_subject_data, _teacher_subject_division_counts, split_subject_periods,
+    CLASS_RE, ExcelTimetableEditor, _split_subject_data, _teacher_subject_division_counts, group_period_message,
+    split_subject_periods,
 )
 
 _LOCK = threading.Lock()
@@ -99,6 +100,8 @@ def lesson_options(path, class_name, day_index, period_index):
             raise ValueError("Class " + class_name + " is not in this workbook.")
         row, col = int(day_index) + 3, int(period_index) + 2
         sheet = editor.workbook[class_name]
+        if editor._is_group_cell(sheet.cell(row, col).value):
+            raise ValueError(group_period_message(editor._display_value(sheet.cell(row, col).value)))
         subject, teacher = editor._split_lesson(editor._display_value(sheet.cell(row, col).value))
         by_subject = {}
         for pair in editor._teacher_subject_pairs_for_grade(class_name):
