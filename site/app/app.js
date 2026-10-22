@@ -623,7 +623,7 @@ function renderPeek() {
           ${prop('list', 'Division', `<div class="select bordered" data-action="pk-div">${v.division ? esc(v.division) : '<span class="placeholder">Choose</span>'}${icon('down', 'sm')}</div>`)}
           ${prop('user', 'Teacher', `<div class="combo"><input id="pk-teacher" placeholder="Type or pick a teacher" value="${esc(v.teacher)}" autocomplete="off"></div>`)}
           ${prop('hash', 'Periods / week', `<div class="stepper"><button data-action="pk-step" data-d="-1">${icon('minus', 'sm')}</button><span class="val" id="pk-periods">${esc(v.periods_per_week)}</span><button data-action="pk-step" data-d="1">${icon('plus', 'sm')}</button></div>`)}
-          ${prop('layers', 'Two together', `<div class="switch-row"><div class="switch ${v.double ? 'on' : ''}" data-action="pk-double"></div><span class="faint small">Periods come in back-to-back pairs on the same day</span></div>`)}
+          ${prop('layers', 'Two together', `<div class="switch-row"><div class="switch ${v.double ? 'on' : ''}" data-action="pk-double"></div><span class="faint small">Back-to-back pairs on the same day, e.g. lab periods</span></div>`)}
         </div>
         <div id="pk-warning"></div>
       </div>
@@ -739,8 +739,9 @@ function renderGroups(host) {
     </div>`).join('');
   host.innerHTML = `<div class="grp-wrap">
     <div class="callout blue"><div class="ce">${icon('users')}</div><div class="cb"><div class="ct">Group periods</div>
-      A group period such as AMD splits into activities (music, karate, guitar…) that run at the same time. Choose the class,
-      the divisions that take it together and a teacher for each activity. Those teachers are kept free for it.</div></div>
+      Use a group when a period splits into parts that run at the same time: AMD (music, karate, guitar…), or a
+      Bio / Computer split where biology students and computer students go to different rooms. Choose the class, the divisions
+      that take it together (just A, or B and C mixed) and a teacher for each part. Those teachers are kept free for it.</div></div>
     ${groups.length ? `<div class="grp-grid">${cards}</div>` : `<div class="empty-state" style="height:auto;padding:36px"><div><h3>No groups${reqGroups().length ? ' match' : ' yet'}</h3>
       <p>${reqGroups().length ? 'Try a different class, division or search.' : 'Add one for periods like AMD that split into activities.'}</p></div></div>`}
     <div class="new-row" data-action="new-group">${icon('plus', 'sm')}New group</div>
@@ -757,7 +758,8 @@ function openGroupEditor(key) {
         activities: [{ subject: '', teacher: '' }, { subject: '', teacher: '' }] };
   const teachers = [...new Set(S.req.rows.map((r) => r.teacher).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const m = modal(`<div class="modal-body"><h3>${existing ? 'Edit group' : 'New group'}</h3>
-      <p>The divisions you pick take this group at the same time, split into activities with their own teachers.</p>
+      <p>The divisions you pick take this group at the same time, split into parts with their own teachers, like AMD or a Bio / Computer split.
+        Pick one division for a split inside one class, or several when their students mix.</p>
       <div id="grp-form"></div>
       <datalist id="grp-teachers">${teachers.map((t) => `<option value="${esc(t)}">`).join('')}</datalist></div>
     <div class="modal-foot">${existing ? `<button class="btn danger" data-x="delete">${icon('trash', 'sm')}Delete</button><span style="flex:1"></span>` : ''}
@@ -768,19 +770,19 @@ function openGroupEditor(key) {
     const pairCount = plural(Math.floor(f.periods / 2), 'pair');
     const pairs = f.double ? (f.periods % 2 ? ` · ${f.periods > 1 ? `${pairCount} and ` : ''}1 single period` : ` · ${pairCount}`) : '';
     $('#grp-form', m.el).innerHTML = `
-      <div class="gf"><label class="gf-l" for="g-name">Group name</label><input class="input" id="g-name" placeholder="e.g. AMD" value="${esc(f.name)}" autocomplete="off"></div>
+      <div class="gf"><label class="gf-l" for="g-name">Group name</label><input class="input" id="g-name" placeholder="e.g. AMD or Bio/CS (B+C)" value="${esc(f.name)}" autocomplete="off"></div>
       <div class="gf"><div class="gf-l">Class</div><div class="gf-pills">${S.boot.classes.map((g) => `<button class="grade-pill ${f.grade === g ? 'on' : ''}" data-x="grade" data-v="${g}">${g}</button>`).join('')}</div></div>
       <div class="gf"><div class="gf-l">Divisions at the same time</div><div class="gf-pills">${S.boot.divisions.map((d) => `<button class="grade-pill ${f.divisions.includes(d) ? 'on' : ''}" data-x="div" data-v="${d}">${f.grade ? esc(f.grade) + '-' : ''}${d}</button>`).join('')}</div></div>
       <div class="gf gf-inline">
         <div><div class="gf-l">Periods per week</div><div class="stepper"><button data-x="pd" data-d="-1">${icon('minus', 'sm')}</button><span class="val">${f.periods}</span><button data-x="pd" data-d="1">${icon('plus', 'sm')}</button></div></div>
         <div><div class="gf-l">Two periods together</div><div class="switch-row"><div class="switch ${f.double ? 'on' : ''}" data-x="double"></div><span class="faint small">${f.double ? 'Back-to-back on the same day' : 'Off'}${pairs}</span></div></div>
       </div>
-      <div class="gf"><div class="gf-l">Activities and teachers</div>
+      <div class="gf"><div class="gf-l">Parts and teachers</div>
         ${f.activities.map((a, i) => `<div class="gf-act">
-          <input class="input" data-a="subject" data-i="${i}" placeholder="Activity, e.g. Music" value="${esc(a.subject)}" autocomplete="off">
+          <input class="input" data-a="subject" data-i="${i}" placeholder="Part, e.g. Music or Biology" value="${esc(a.subject)}" autocomplete="off">
           <input class="input" data-a="teacher" data-i="${i}" list="grp-teachers" placeholder="Teacher" value="${esc(a.teacher)}" autocomplete="off">
           <button class="btn ghost icon" data-x="rm" data-i="${i}" title="Remove activity" ${f.activities.length < 2 ? 'disabled' : ''}>${icon('x', 'sm')}</button></div>`).join('')}
-        <button class="btn ghost sm" data-x="add">${icon('plus', 'sm')}Add activity</button></div>
+        <button class="btn ghost sm" data-x="add">${icon('plus', 'sm')}Add part</button></div>
       <p class="faint small">${f.grade && f.divisions.length ? `${f.divisions.map((d) => `${f.grade}-${d}`).join(', ')} each keep ${capacity - f.periods} of ${capacity} periods for their other subjects.` : 'Pick a class and its divisions.'}</p>`;
   };
   m.el.addEventListener('input', (e) => {
@@ -814,7 +816,7 @@ function openGroupEditor(key) {
     if (acts.some((a) => !a.subject || !a.teacher)) return toast('Every activity needs a name and a teacher.');
     if (new Set(acts.map((a) => a.subject.toLowerCase())).size !== acts.length) return toast('Each activity name can be used once.');
     const newKey = `${f.grade}|${name.toLowerCase()}`;
-    if (newKey !== key && reqGroups().some((g) => g.key === newKey)) return toast(`Class ${f.grade} already has a group called ${name}.`);
+    if (newKey !== key && reqGroups().some((g) => g.key === newKey)) return toast(`Class ${f.grade} already has a group called ${name}. Add the divisions to the name, e.g. ${name} (${f.divisions.join('+')}).`);
     ensureField('group');
     ensureField('double');
     const rows = [];
