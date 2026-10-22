@@ -372,6 +372,21 @@ function groupPeriodsByClass() {
 }
 
 // Remove rows by index and append new ones, keeping the "changed" marks in step.
+// Normal subject rows in these divisions that a group's parts replace, e.g. the separate
+// Biology and Computer Science rows of 11-B once a Bio/CS group covers them.
+// "Computer" matches "Computer Science" and "Bio" matches "Biology".
+function separateRowsFor(grade, divisions, parts) {
+  const names = parts.map((p) => p.trim().toLowerCase()).filter((p) => p.length >= 3);
+  const same = (s) => s.length >= 3 && names.some((p) => s === p || s.startsWith(p) || p.startsWith(s));
+  const out = [];
+  S.req.rows.forEach((r, i) => {
+    if (!isGroupRow(r) && r.class === grade && divisions.includes(r.division) && same(r.subject.trim().toLowerCase())) out.push(i);
+  });
+  return out;
+}
+
+const rowLabel = (i) => `${S.req.rows[i].class}-${S.req.rows[i].division} ${S.req.rows[i].subject}`;
+
 function replaceRows(remove, add) {
   const drop = new Set(remove);
   const kept = [];
@@ -736,6 +751,8 @@ function renderGroups(host) {
         <span class="faint small">same time · ${capacity - g.periods} left for subjects</span></div>
       <div class="grp-acts">${g.activities.map((a) => `<div class="grp-act"><span class="subj-pill b-${colorFor(a.subject)}">${esc(a.subject)}</span>
         <span class="cellflex">${avatar(a.teacher)}<span>${esc(a.teacher)}</span></span></div>`).join('')}</div>
+      ${((left) => (left.length ? `<div class="grp-warn">${icon('alert', 'sm')}<span>Also listed as separate rows: ${esc(left.map(rowLabel).join(', '))}</span>
+        <button class="btn ghost sm" data-action="group-clean" data-key="${esc(g.key)}">Remove them</button></div>` : ''))(separateRowsFor(g.grade, g.divisions, g.activities.map((a) => a.subject)))}
     </div>`).join('');
   host.innerHTML = `<div class="grp-wrap">
     <div class="callout blue"><div class="ce">${icon('users')}</div><div class="cb"><div class="ct">Group periods</div>
@@ -752,16 +769,17 @@ function openGroupEditor(key) {
   if (S.req.peek) closePeek();
   const existing = key ? reqGroups().find((g) => g.key === key) : null;
   const f = existing
-    ? { name: existing.name, grade: existing.grade, divisions: [...existing.divisions], periods: existing.periods || 2,
+    ? { name: existing.name, grades: [existing.grade], divisions: [...existing.divisions], periods: existing.periods || 2,
         double: existing.double, activities: existing.activities.map((a) => ({ ...a })) }
-    : { name: '', grade: S.req.grade !== 'All' ? S.req.grade : '', divisions: [...S.boot.divisions], periods: 2, double: true,
+    : { name: '', grades: S.req.grade !== 'All' ? [S.req.grade] : [], divisions: [...S.boot.divisions], periods: 2, double: true,
         activities: [{ subject: '', teacher: '' }, { subject: '', teacher: '' }] };
+  f.removeSeparate = true;
   const teachers = [...new Set(S.req.rows.map((r) => r.teacher).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const m = modal(`<div class="modal-body"><h3>${existing ? 'Edit group' : 'New group'}</h3>
       <p>The divisions you pick take this group at the same time, split into parts with their own teachers, like AMD or a Bio / Computer split.
         Pick one division for a split inside one class, or several when their students mix.</p>
       <div id="grp-form"></div>
-      <datalist id="grp-teachers">${teachers.map((t) => `<option value="${esc(t)}">`).join('')}</datalist></div>
+      <div id="g-lists"></div></div>
     <div class="modal-foot">${existing ? `<button class="btn danger" data-x="delete">${icon('trash', 'sm')}Delete</button><span style="flex:1"></span>` : ''}
       <button class="btn secondary" data-x="cancel">Cancel</button>
       <button class="btn primary" data-x="save">${existing ? 'Save group' : 'Add group'}</button></div>`, { wide: true });
@@ -771,8 +789,8 @@ function openGroupEditor(key) {
     const pairs = f.double ? (f.periods % 2 ? ` · ${f.periods > 1 ? `${pairCount} and ` : ''}1 single period` : ` · ${pairCount}`) : '';
     $('#grp-form', m.el).innerHTML = `
       <div class="gf"><label class="gf-l" for="g-name">Group name</label><input class="input" id="g-name" placeholder="e.g. AMD or Bio/CS (B+C)" value="${esc(f.name)}" autocomplete="off"></div>
-      <div class="gf"><div class="gf-l">Class</div><div class="gf-pills">${S.boot.classes.map((g) => `<button class="grade-pill ${f.grade === g ? 'on' : ''}" data-x="grade" data-v="${g}">${g}</button>`).join('')}</div></div>
-      <div class="gf"><div class="gf-l">Divisions at the same time</div><div class="gf-pills">${S.boot.divisions.map((d) => `<button class="grade-pill ${f.divisions.includes(d) ? 'on' : ''}" data-x="div" data-v="${d}">${f.grade ? esc(f.grade) + '-' : ''}${d}</button>`).join('')}</div></div>
+      <div class="gf"><div class="gf-l">Classes <span class="faint small">· pick one or more; each class gets its own copy</span></div><div class="gf-pills">${S.boot.classes.map((g) => `<button class="grade-pill ${f.grades.includes(g) ? 'on' : ''}" data-x="grade" data-v="${g}">${g}</button>`).join('')}</div></div>
+      <div class="gf"><div class="gf-l">Divisions at the same time</div><div class="gf-pills">${S.boot.divisions.map((d) => `<button class="grade-pill ${f.divisions.includes(d) ? 'on' : ''}" data-x="div" data-v="${d}">${f.grades.length === 1 ? esc(f.grades[0]) + '-' : ''}${d}</button>`).join('')}</div></div>
       <div class="gf gf-inline">
         <div><div class="gf-l">Periods per week</div><div class="stepper"><button data-x="pd" data-d="-1">${icon('minus', 'sm')}</button><span class="val">${f.periods}</span><button data-x="pd" data-d="1">${icon('plus', 'sm')}</button></div></div>
         <div><div class="gf-l">Two periods together</div><div class="switch-row"><div class="switch ${f.double ? 'on' : ''}" data-x="double"></div><span class="faint small">${f.double ? 'Back-to-back on the same day' : 'Off'}${pairs}</span></div></div>
@@ -780,15 +798,40 @@ function openGroupEditor(key) {
       <div class="gf"><div class="gf-l">Parts and teachers</div>
         ${f.activities.map((a, i) => `<div class="gf-act">
           <input class="input" data-a="subject" data-i="${i}" placeholder="Part, e.g. Music or Biology" value="${esc(a.subject)}" autocomplete="off">
-          <input class="input" data-a="teacher" data-i="${i}" list="grp-teachers" placeholder="Teacher" value="${esc(a.teacher)}" autocomplete="off">
+          <input class="input" data-a="teacher" data-i="${i}" list="grp-teachers-${i}" placeholder="Teacher" value="${esc(a.teacher)}" autocomplete="off">
           <button class="btn ghost icon" data-x="rm" data-i="${i}" title="Remove activity" ${f.activities.length < 2 ? 'disabled' : ''}>${icon('x', 'sm')}</button></div>`).join('')}
         <button class="btn ghost sm" data-x="add">${icon('plus', 'sm')}Add part</button></div>
-      <p class="faint small">${f.grade && f.divisions.length ? `${f.divisions.map((d) => `${f.grade}-${d}`).join(', ')} each keep ${capacity - f.periods} of ${capacity} periods for their other subjects.` : 'Pick a class and its divisions.'}</p>`;
+      <div id="g-sep"></div>
+      <p class="faint small">${f.grades.length && f.divisions.length ? `${classList().join(', ')} each keep ${capacity - f.periods} of ${capacity} periods for their other subjects.${f.grades.length > 1 ? ' Each class gets its own periods.' : ''}` : 'Pick a class and its divisions.'}</p>`;
+    renderSeparate();
+    renderLists();
+  };
+  // Each part's teacher box suggests teachers of that subject ("Biology" → biology
+  // teachers); a part nobody teaches yet, like Karate, suggests everyone.
+  const teachersFor = (part) => {
+    const p = part.trim().toLowerCase();
+    const same = (subject) => { const s = subject.trim().toLowerCase(); return s.length >= 3 && (s === p || s.startsWith(p) || p.startsWith(s)); };
+    const list = p.length < 3 ? [] : [...new Set(S.req.rows.filter((r) => r.teacher && same(r.subject)).map((r) => r.teacher))];
+    return list.length ? list.sort((a, b) => a.localeCompare(b)) : teachers;
+  };
+  const renderLists = () => {
+    $('#g-lists', m.el).innerHTML = f.activities.map((a, i) =>
+      `<datalist id="grp-teachers-${i}">${teachersFor(a.subject).map((t) => `<option value="${esc(t)}">`).join('')}</datalist>`).join('');
+  };
+  // The single subject rows this group replaces (e.g. separate Biology and Computer rows).
+  const classList = () => f.grades.flatMap((g) => f.divisions.map((d) => `${g}-${d}`));
+  const separate = () => f.grades.flatMap((g) => separateRowsFor(g, f.divisions, f.activities.map((a) => a.subject)));
+  const renderSeparate = () => {
+    const list = separate();
+    $('#g-sep', m.el).innerHTML = list.length ? `<div class="gf"><div class="gf-l">Separate subject rows</div>
+      <div class="switch-row"><div class="switch ${f.removeSeparate ? 'on' : ''}" data-x="rmsep"></div>
+        <span class="small">${f.removeSeparate ? `Remove ${plural(list.length, 'row')} this group replaces` : `Keep ${plural(list.length, 'row')} as separate subjects too`}</span></div>
+      <div class="gf-pills" style="margin-top:8px">${list.map((i) => `<span class="tag ${f.removeSeparate ? 'off' : ''}">${esc(rowLabel(i))} · ${esc(S.req.rows[i].periods_per_week)}</span>`).join('')}</div></div>` : '';
   };
   m.el.addEventListener('input', (e) => {
     const el = e.target;
     if (el.id === 'g-name') f.name = el.value;
-    else if (el.dataset.a) f.activities[Number(el.dataset.i)][el.dataset.a] = el.value;
+    else if (el.dataset.a) { f.activities[Number(el.dataset.i)][el.dataset.a] = el.value; if (el.dataset.a === 'subject') { renderSeparate(); renderLists(); } }
   });
   m.el.addEventListener('click', (e) => {
     const b = e.target.closest('[data-x]');
@@ -797,10 +840,11 @@ function openGroupEditor(key) {
     if (x === 'cancel') return m.close();
     if (x === 'save') return saveGroup();
     if (x === 'delete') return deleteGroup();
-    if (x === 'grade') f.grade = b.dataset.v;
+    if (x === 'grade') f.grades = (f.grades.includes(b.dataset.v) ? f.grades.filter((g) => g !== b.dataset.v) : [...f.grades, b.dataset.v]).sort((p, q) => p - q);
     else if (x === 'div') f.divisions = f.divisions.includes(b.dataset.v) ? f.divisions.filter((d) => d !== b.dataset.v) : [...f.divisions, b.dataset.v].sort();
     else if (x === 'pd') f.periods = Math.max(1, Math.min(capacity, f.periods + Number(b.dataset.d)));
     else if (x === 'double') f.double = !f.double;
+    else if (x === 'rmsep') { f.removeSeparate = !f.removeSeparate; return renderSeparate(); }
     else if (x === 'add') f.activities.push({ subject: '', teacher: '' });
     else if (x === 'rm') f.activities.splice(Number(b.dataset.i), 1);
     render();
@@ -810,26 +854,28 @@ function openGroupEditor(key) {
     const name = f.name.trim();
     const acts = f.activities.map((a) => ({ subject: a.subject.trim(), teacher: a.teacher.trim() })).filter((a) => a.subject || a.teacher);
     if (!name) return toast('Give the group a name, e.g. AMD.');
-    if (!f.grade) return toast('Choose the class.');
+    if (!f.grades.length) return toast('Choose at least one class.');
     if (!f.divisions.length) return toast('Choose at least one division.');
     if (!acts.length) return toast('Add at least one activity with its teacher.');
     if (acts.some((a) => !a.subject || !a.teacher)) return toast('Every activity needs a name and a teacher.');
     if (new Set(acts.map((a) => a.subject.toLowerCase())).size !== acts.length) return toast('Each activity name can be used once.');
-    const newKey = `${f.grade}|${name.toLowerCase()}`;
-    if (newKey !== key && reqGroups().some((g) => g.key === newKey)) return toast(`Class ${f.grade} already has a group called ${name}. Add the divisions to the name, e.g. ${name} (${f.divisions.join('+')}).`);
+    const taken = f.grades.find((g) => `${g}|${name.toLowerCase()}` !== key && reqGroups().some((x) => x.key === `${g}|${name.toLowerCase()}`));
+    if (taken) return toast(`Class ${taken} already has a group called ${name}. Add the divisions to the name, e.g. ${name} (${f.divisions.join('+')}).`);
     ensureField('group');
     ensureField('double');
     const rows = [];
-    f.divisions.forEach((division) => acts.forEach((a) => {
+    f.grades.forEach((grade) => f.divisions.forEach((division) => acts.forEach((a) => {
       rows.push(Object.assign(Object.fromEntries(S.req.fieldnames.map((n) => [n, ''])), {
-        class: f.grade, division, subject: a.subject, teacher: a.teacher, periods_per_week: String(f.periods),
+        class: grade, division, subject: a.subject, teacher: a.teacher, periods_per_week: String(f.periods),
         group: name, double: f.double ? 'yes' : '' }));
-    }));
-    replaceRows(existing ? existing.indexes : [], rows);
+    })));
+    const removed = f.removeSeparate ? separate() : [];
+    replaceRows([...(existing ? existing.indexes : []), ...removed], rows);
     m.close();
     setDirty(true);
     renderReqTable();
-    toast(`${existing ? 'Updated' : 'Added'} ${name} for ${f.divisions.map((d) => `${f.grade}-${d}`).join(', ')}. Press Save to keep it.`);
+    toast(`${existing ? 'Updated' : 'Added'} ${name} for ${classList().join(', ')}`
+      + `${removed.length ? ` and removed ${plural(removed.length, 'separate row')}` : ''}. Press Save to keep it.`);
   };
   const deleteGroup = async () => {
     if (!(await confirmDialog({ title: `Delete ${existing.name}?`, text: `Class ${existing.grade} · ${existing.divisions.join(', ')}\nThe file changes when you press Save.`, confirm: 'Delete', danger: true }))) return;
@@ -1463,6 +1509,17 @@ const ACTIONS = {
     : openPeek(null, { class: S.req.grade !== 'All' ? S.req.grade : '', division: S.req.division !== 'All' ? S.req.division : '' })),
   'new-group': () => openGroupEditor(null),
   'open-group': (el) => openGroupEditor(el.dataset.key),
+  'group-clean': async (el) => {
+    const g = reqGroups().find((x) => x.key === el.dataset.key);
+    const list = g ? separateRowsFor(g.grade, g.divisions, g.activities.map((a) => a.subject)) : [];
+    if (!list.length) return;
+    const ok = await confirmDialog({ title: `Remove ${plural(list.length, 'separate row')}?`, text: `${g.name} already covers these:\n${list.map(rowLabel).join('\n')}\n\nThe file changes when you press Save.`, confirm: 'Remove', danger: true });
+    if (!ok) return;
+    replaceRows(list, []);
+    setDirty(true);
+    renderReqTable();
+    toast(`Removed ${plural(list.length, 'separate row')}. Press Save to keep it.`);
+  },
   'pk-double': (el) => { S.req.peek.values.double = !S.req.peek.values.double; el.classList.toggle('on', S.req.peek.values.double); },
   'group-info': (el) => {
     const [name, line] = el.dataset.cell.split('\n');

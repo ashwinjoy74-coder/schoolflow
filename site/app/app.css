@@ -899,6 +899,12 @@ tr.group td .gname { font-size: 15.5px; }
 .grp-act { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .grp-act .cellflex { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text-2); }
 .grp-act .cellflex > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grp-warn {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border-radius: 8px;
+  background: rgba(217, 115, 13, .08); color: var(--text-2); font-size: 13px;
+}
+.grp-warn svg { color: #d9730d; flex: none; }
+.grp-warn span { flex: 1; min-width: 160px; }
 
 .gf { margin-top: 16px; }
 .gf-l { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
