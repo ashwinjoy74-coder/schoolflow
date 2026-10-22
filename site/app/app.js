@@ -336,6 +336,7 @@ const REQ_FIELDS = ['class', 'division', 'subject', 'teacher', 'periods_per_week
 // activity. "double" marks a row or group whose periods come two together.
 const isGroupRow = (row) => !!String(row.group || '').trim();
 const isYes = (value) => ['yes', 'y', 'true', '1', 'x'].includes(String(value || '').trim().toLowerCase());
+const isNo = (value) => ['no', 'n', 'false', '0'].includes(String(value || '').trim().toLowerCase());
 
 function ensureField(name) {
   if (S.req.fieldnames.includes(name)) return;
@@ -351,11 +352,12 @@ function reqGroups() {
     const key = `${row.class}|${row.group.trim().toLowerCase()}`;
     if (!groups.has(key)) {
       groups.set(key, { key, name: row.group.trim(), grade: row.class, divisions: [], activities: [],
-        periods: Number(row.periods_per_week) || 0, double: false, indexes: [] });
+        periods: Number(row.periods_per_week) || 0, double: false, together: true, indexes: [] });
     }
     const g = groups.get(key);
     g.indexes.push(index);
     g.double = g.double || isYes(row.double);
+    g.together = g.together && !isNo(row.together);
     if (!g.divisions.includes(row.division)) g.divisions.push(row.division);
     const same = (a) => a.subject.toLowerCase() === row.subject.toLowerCase() && a.teacher.toLowerCase() === row.teacher.toLowerCase();
     if (!g.activities.some(same)) g.activities.push({ subject: row.subject, teacher: row.teacher });
@@ -748,7 +750,7 @@ function renderGroups(host) {
       <div class="grp-top"><span class="subj-pill b-${colorFor(g.name)}">${esc(g.name)}</span><span class="grow"></span>
         ${g.double ? '<span class="tag c-blue">Two together</span>' : ''}<span class="tag">${plural(g.periods, 'period')} / week</span></div>
       <div class="grp-classes"><span>Class ${esc(g.grade)}</span>${g.divisions.map((d) => `<span class="cls-chip div">${esc(d)}</span>`).join('')}
-        <span class="faint small">same time · ${capacity - g.periods} left for subjects</span></div>
+        <span class="faint small">${g.together || g.divisions.length < 2 ? 'same time' : 'each division separately'} · ${capacity - g.periods} left for subjects</span></div>
       <div class="grp-acts">${g.activities.map((a) => `<div class="grp-act"><span class="subj-pill b-${colorFor(a.subject)}">${esc(a.subject)}</span>
         <span class="cellflex">${avatar(a.teacher)}<span>${esc(a.teacher)}</span></span></div>`).join('')}</div>
       ${((left) => (left.length ? `<div class="grp-warn">${icon('alert', 'sm')}<span>Also listed as separate rows: ${esc(left.map(rowLabel).join(', '))}</span>
@@ -805,8 +807,8 @@ function openGroupEditor(key) {
   const existing = key ? reqGroups().find((g) => g.key === key) : null;
   const f = existing
     ? { name: existing.name, grades: [existing.grade], divisions: [...existing.divisions], periods: existing.periods || 2,
-        double: existing.double, activities: existing.activities.map((a) => ({ ...a })) }
-    : { name: '', grades: S.req.grade !== 'All' ? [S.req.grade] : [], divisions: [...S.boot.divisions], periods: 2, double: true,
+        double: existing.double, together: existing.together, activities: existing.activities.map((a) => ({ ...a })) }
+    : { name: '', grades: S.req.grade !== 'All' ? [S.req.grade] : [], divisions: [...S.boot.divisions], periods: 2, double: true, together: true,
         activities: [{ subject: '', teacher: '' }, { subject: '', teacher: '' }] };
   f.removeSeparate = true;
   const teachers = [...new Set(S.req.rows.map((r) => r.teacher).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -824,7 +826,9 @@ function openGroupEditor(key) {
     $('#grp-form', m.el).innerHTML = `
       <div class="gf"><label class="gf-l" for="g-name">Group name</label><input class="input" id="g-name" placeholder="e.g. AMD or Bio/CS (B+C)" value="${esc(f.name)}" autocomplete="off"></div>
       <div class="gf"><div class="gf-l">Classes <span class="faint small">· pick one or more; each class gets its own copy</span></div><div class="gf-pills">${S.boot.classes.map((g) => `<button class="grade-pill ${f.grades.includes(g) ? 'on' : ''}" data-x="grade" data-v="${g}">${g}</button>`).join('')}</div></div>
-      <div class="gf"><div class="gf-l">Divisions at the same time</div><div class="gf-pills">${S.boot.divisions.map((d) => `<button class="grade-pill ${f.divisions.includes(d) ? 'on' : ''}" data-x="div" data-v="${d}">${f.grades.length === 1 ? esc(f.grades[0]) + '-' : ''}${d}</button>`).join('')}</div></div>
+      <div class="gf"><div class="gf-l">Divisions</div><div class="gf-pills">${S.boot.divisions.map((d) => `<button class="grade-pill ${f.divisions.includes(d) ? 'on' : ''}" data-x="div" data-v="${d}">${f.grades.length === 1 ? esc(f.grades[0]) + '-' : ''}${d}</button>`).join('')}</div>
+        <div class="switch-row" style="margin-top:8px"><div class="switch ${f.together ? 'on' : ''}" data-x="together"></div>
+          <span class="small">${f.together ? 'Same time for all divisions <span class="faint">· students can mix, e.g. B and C</span>' : 'Each division in its own periods <span class="faint">· the same teachers take them one by one</span>'}</span></div></div>
       <div class="gf gf-inline">
         <div><div class="gf-l">Periods per week</div><div class="stepper"><button data-x="pd" data-d="-1">${icon('minus', 'sm')}</button><span class="val">${f.periods}</span><button data-x="pd" data-d="1">${icon('plus', 'sm')}</button></div></div>
         <div><div class="gf-l">Two periods together</div><div class="switch-row"><div class="switch ${f.double ? 'on' : ''}" data-x="double"></div><span class="faint small">${f.double ? 'Back-to-back on the same day' : 'Off'}${pairs}</span></div></div>
@@ -836,7 +840,7 @@ function openGroupEditor(key) {
           <button class="btn ghost icon" data-x="rm" data-i="${i}" title="Remove activity" ${f.activities.length < 2 ? 'disabled' : ''}>${icon('x', 'sm')}</button></div>`).join('')}
         <button class="btn ghost sm" data-x="add">${icon('plus', 'sm')}Add part</button></div>
       <div id="g-sep"></div>
-      <p class="faint small">${f.grades.length && f.divisions.length ? `${classList().join(', ')} each keep ${capacity - f.periods} of ${capacity} periods for their other subjects.${f.grades.length > 1 ? ' Each class gets its own periods.' : ''}` : 'Pick a class and its divisions.'}</p>`;
+      <p class="faint small">${f.grades.length && f.divisions.length ? `${classList().join(', ')} each keep ${capacity - f.periods} of ${capacity} periods for their other subjects.${f.grades.length > 1 ? ' Each class gets its own periods.' : ''}${!f.together && f.divisions.length > 1 ? ` Each teacher needs ${f.periods * classList().length} periods a week for this group.` : ''}` : 'Pick a class and its divisions.'}</p>`;
     renderSeparate();
   };
   // Each part's teacher box suggests teachers of that subject ("Biology" → biology
@@ -892,6 +896,7 @@ function openGroupEditor(key) {
     else if (x === 'div') f.divisions = f.divisions.includes(b.dataset.v) ? f.divisions.filter((d) => d !== b.dataset.v) : [...f.divisions, b.dataset.v].sort();
     else if (x === 'pd') f.periods = Math.max(1, Math.min(capacity, f.periods + Number(b.dataset.d)));
     else if (x === 'double') f.double = !f.double;
+    else if (x === 'together') f.together = !f.together;
     else if (x === 'rmsep') { f.removeSeparate = !f.removeSeparate; return renderSeparate(); }
     else if (x === 'add') f.activities.push({ subject: '', teacher: '' });
     else if (x === 'rm') f.activities.splice(Number(b.dataset.i), 1);
@@ -911,11 +916,12 @@ function openGroupEditor(key) {
     if (taken) return toast(`Class ${taken} already has a group called ${name}. Add the divisions to the name, e.g. ${name} (${f.divisions.join('+')}).`);
     ensureField('group');
     ensureField('double');
+    ensureField('together');
     const rows = [];
     f.grades.forEach((grade) => f.divisions.forEach((division) => acts.forEach((a) => {
       rows.push(Object.assign(Object.fromEntries(S.req.fieldnames.map((n) => [n, ''])), {
         class: grade, division, subject: a.subject, teacher: a.teacher, periods_per_week: String(f.periods),
-        group: name, double: f.double ? 'yes' : '' }));
+        group: name, double: f.double ? 'yes' : '', together: f.together ? '' : 'no' }));
     })));
     const removed = f.removeSeparate ? separate() : [];
     replaceRows([...(existing ? existing.indexes : []), ...removed], rows);
