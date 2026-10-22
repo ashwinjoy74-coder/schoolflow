@@ -767,7 +767,7 @@ function renderGroups(host) {
 
 // A searchable list of names, with an "Other…" entry that asks for a new one.
 function pickName(anchor, { title, names, hints = {}, current, otherLabel, onPick }) {
-  const OTHER = ' other';
+  const OTHER = Symbol('other');
   const build = (term) => {
     const t = term.trim().toLowerCase();
     const items = names.filter((n) => !t || n.toLowerCase().includes(t))
